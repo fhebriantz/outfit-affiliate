@@ -270,6 +270,20 @@ export default function PostingEditorPage() {
     }
   }
 
+  // Buka Google Drive di tab baru + salin nama folder (label) ke clipboard.
+  async function openDrive() {
+    const folderName = posting?.label || (posting ? formatTanggalIndo(posting.tanggal) : '')
+    try {
+      if (navigator.clipboard && window.isSecureContext && folderName) {
+        await navigator.clipboard.writeText(folderName)
+        toast(`Nama folder "${folderName}" disalin — tinggal bikin folder & paste`)
+      }
+    } catch {
+      /* abaikan: tetap buka Drive walau gagal menyalin */
+    }
+    window.open('https://drive.google.com/drive/my-drive', '_blank', 'noopener')
+  }
+
   // Pakai ulang nomor & link affiliate dari produk yang sudah ada.
   function reuseExisting() {
     if (!dup) return
@@ -420,13 +434,27 @@ export default function PostingEditorPage() {
           </div>
           <div className="sm:col-span-2">
             <label className="label">Link Google Drive (hasil generate)</label>
-            <input
-              className="input"
-              value={posting.drive_url ?? ''}
-              onChange={(e) => setPosting({ ...posting, drive_url: e.target.value })}
-              onBlur={(e) => savePosting({ drive_url: e.target.value || null })}
-              placeholder="https://drive.google.com/drive/folders/..."
-            />
+            <div className="flex gap-1">
+              <input
+                className="input"
+                value={posting.drive_url ?? ''}
+                onChange={(e) => setPosting({ ...posting, drive_url: e.target.value })}
+                onBlur={(e) => savePosting({ drive_url: e.target.value || null })}
+                placeholder="https://drive.google.com/drive/folders/..."
+              />
+              <button
+                type="button"
+                onClick={openDrive}
+                className="btn-secondary shrink-0 whitespace-nowrap"
+                title="Buka Google Drive & salin nama folder"
+              >
+                Buka Drive
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-gray-400">
+              Tombol “Buka Drive” menyalin nama folder ({posting.label || formatTanggalIndo(posting.tanggal)})
+              ke clipboard — tinggal bikin folder, paste namanya, lalu salin link folder ke sini.
+            </p>
           </div>
           <div>
             <label className="label">Status</label>
