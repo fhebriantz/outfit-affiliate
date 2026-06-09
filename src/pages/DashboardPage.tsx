@@ -6,6 +6,7 @@ import {
   createItem,
   createPosting,
   deletePosting,
+  getMaxNumber,
   listAllItems,
   listItems,
   listPostings,
@@ -113,12 +114,14 @@ export default function DashboardPage() {
         caption_hashtags: p.caption_hashtags,
         status: 'draft',
       })
-      // Salin struktur item (kategori & nomor) tanpa link, supaya nomor bisa disesuaikan.
-      for (const it of items) {
+      // Salin struktur kategori saja (tanpa link), nomor LANJUT otomatis dari nomor terakhir.
+      let nextNum = (await getMaxNumber()) + 1
+      const ordered = items.slice().sort((a, b) => a.urutan - b.urutan)
+      for (const it of ordered) {
         await createItem(user.id, {
           posting_id: dup.id,
           urutan: it.urutan,
-          my_number: it.my_number,
+          my_number: nextNum++,
           kategori: it.kategori,
         })
       }

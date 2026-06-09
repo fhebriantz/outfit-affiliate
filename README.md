@@ -33,7 +33,7 @@ Dibuat dengan **React + Vite + TypeScript + Tailwind**, data tersimpan di **Supa
 - Daftar postingan per tanggal, label otomatis "9 Juni 2026".
 - Item produk: **nomor global** (lanjut otomatis dari nomor terakhir, bisa diedit), kategori, kode referensi (mis. `b 583`), link sumber, link affiliate. Bisa diurutkan & dihapus.
 - **Tempel banyak link sumber sekaligus → item otomatis dibuat** (nomor lanjut + deteksi duplikat jalan).
-- **Duplikat postingan** (salin struktur kategori & nomor) untuk hari berikutnya.
+- **Duplikat postingan** (salin struktur kategori; nomor lanjut otomatis) untuk hari berikutnya.
 
 **Deteksi duplikat**
 - Mengenali produk yang sama dari link Shopee berdasarkan `{shop_id}/{product_id}` (abaikan `www`, query `?...`, dan format link: `/product/...`, `/{username}/...` mobile, `-i.{shop}.{item}`). Kalau produk sudah pernah dipakai → tawarkan **pakai ulang nomor & link affiliate lama**.
