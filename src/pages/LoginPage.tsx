@@ -37,9 +37,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-brand-600 text-2xl font-bold text-white">
-            O
-          </div>
+          <img src="/icon.svg" alt="" className="mx-auto mb-3 h-14 w-14 rounded-2xl" />
           <h1 className="text-xl font-bold text-gray-900">Outfit Affiliate Manager</h1>
           <p className="text-sm text-gray-500">Kelola postingan, link & caption affiliate-mu.</p>
         </div>
@@ -81,7 +79,7 @@ export default function LoginPage() {
               {mode === 'login' ? 'Belum punya akun?' : 'Sudah punya akun?'}{' '}
               <button
                 type="button"
-                className="font-semibold text-brand-700 hover:underline"
+                className="font-semibold text-sec-700 hover:underline"
                 onClick={() => {
                   setMode(mode === 'login' ? 'signup' : 'login')
                   setError(null)

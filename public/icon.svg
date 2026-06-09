@@ -1,4 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#db2777"/>
-  <path d="M256 96c-26 0-47 21-47 47 0 6 1 11 3 16l-58 29c-9 5-13 16-9 25l28 64c4 9 14 13 23 10l25-9v109c0 13 11 24 24 24h44c13 0 24-11 24-24V288l25 9c9 3 19-1 23-10l28-64c4-9 0-20-9-25l-58-29c2-5 3-10 3-16 0-26-21-47-47-47z" fill="#fff"/>
+  <defs>
+    <linearGradient id="shopee" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ee4d2d"/>
+      <stop offset="1" stop-color="#ff7337"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="104" fill="url(#shopee)"/>
+  <!-- handle (terlihat di atas badan tas) -->
+  <path d="M198 214 V176 a58 58 0 0 1 116 0 V214"
+        fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round"/>
+  <!-- badan tas -->
+  <path d="M150 200 h212 a16 16 0 0 1 16 17 l-12 168 a40 40 0 0 1 -40 37 H186 a40 40 0 0 1 -40 -37 l-12 -168 a16 16 0 0 1 16 -17 z"
+        fill="#fff"/>
+  <!-- garis handle pada badan tas (aksen) -->
+  <path d="M206 248 v-30 M306 248 v-30"
+        fill="none" stroke="#ee4d2d" stroke-width="16" stroke-linecap="round"/>
 </svg>

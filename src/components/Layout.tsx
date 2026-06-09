@@ -20,7 +20,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="flex items-center gap-2 font-bold text-brand-700">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 text-white">O</span>
+            <img src="/icon.svg" alt="" className="h-8 w-8 rounded-lg" />
             <span className="hidden sm:inline">Outfit Affiliate</span>
           </Link>
           <nav className="flex items-center gap-1">

@@ -444,7 +444,7 @@ export default function PostingEditorPage() {
               href={posting.ref_url}
               target="_blank"
               rel="noreferrer"
-              className="text-sm font-medium text-brand-700 hover:underline"
+              className="text-sm font-medium text-sec-700 hover:underline"
             >
               Buka video referensi ↗
             </a>
@@ -454,7 +454,7 @@ export default function PostingEditorPage() {
               href={posting.drive_url}
               target="_blank"
               rel="noreferrer"
-              className="text-sm font-medium text-brand-700 hover:underline"
+              className="text-sm font-medium text-sec-700 hover:underline"
             >
               Buka folder Drive ↗
             </a>
