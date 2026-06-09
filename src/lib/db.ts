@@ -109,6 +109,7 @@ export async function getSettings(userId: string): Promise<Settings> {
     default_hashtags: DEFAULT_HASHTAGS,
     kategori_presets: DEFAULT_KATEGORI,
     last_number: 0,
+    last_folder: 0,
   }
   const { error: insErr } = await supabase.from('settings').insert(def)
   if (insErr) throw insErr
@@ -133,4 +134,29 @@ export async function reserveNumbers(userId: string, count: number): Promise<num
   const start = base + 1
   await saveSettings(userId, { last_number: base + count })
   return start
+}
+
+/** Nomor label-folder tertinggi yang sudah dipakai (dari label numerik, mis. "003" -> 3). */
+export async function getMaxFolderNumber(): Promise<number> {
+  const { data, error } = await supabase.from('postings').select('label')
+  if (error) throw error
+  let max = 0
+  for (const r of data as { label: string | null }[]) {
+    const n = parseInt(String(r.label ?? '').trim(), 10)
+    if (Number.isFinite(n) && n > max) max = n
+  }
+  return max
+}
+
+/**
+ * Pesan 1 nomor label folder berikutnya memakai counter monotonic settings.last_folder.
+ * Base diambil dari max(counter, label numerik tertinggi) agar aman untuk data lama.
+ */
+export async function reserveFolderNumber(userId: string): Promise<number> {
+  const settings = await getSettings(userId)
+  const maxLabel = await getMaxFolderNumber()
+  const base = Math.max(settings.last_folder ?? 0, maxLabel)
+  const next = base + 1
+  await saveSettings(userId, { last_folder: next })
+  return next
 }

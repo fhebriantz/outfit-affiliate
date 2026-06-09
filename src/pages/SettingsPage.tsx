@@ -10,9 +10,11 @@ export default function SettingsPage() {
   const [hashtags, setHashtags] = useState('')
   const [kategori, setKategori] = useState('')
   const [nextStart, setNextStart] = useState('')
+  const [nextFolder, setNextFolder] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingNum, setSavingNum] = useState(false)
+  const [savingFolder, setSavingFolder] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
@@ -22,6 +24,7 @@ export default function SettingsPage() {
         setHashtags(s.default_hashtags)
         setKategori(s.kategori_presets.join(', '))
         setNextStart(String((s.last_number ?? 0) + 1))
+        setNextFolder(String((s.last_folder ?? 0) + 1))
       })
       .catch((e) => toast(e instanceof Error ? e.message : 'Gagal memuat pengaturan', 'err'))
       .finally(() => setLoading(false))
@@ -64,6 +67,24 @@ export default function SettingsPage() {
       toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'err')
     } finally {
       setSavingNum(false)
+    }
+  }
+
+  async function saveNextFolder() {
+    if (!user) return
+    const n = Number(nextFolder)
+    if (!Number.isFinite(n) || n < 1) {
+      toast('Masukkan angka >= 1', 'err')
+      return
+    }
+    setSavingFolder(true)
+    try {
+      await saveSettings(user.id, { last_folder: Math.floor(n) - 1 })
+      toast(`Label folder berikutnya mulai dari ${String(Math.floor(n)).padStart(3, '0')}`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'err')
+    } finally {
+      setSavingFolder(false)
     }
   }
 
@@ -133,10 +154,10 @@ export default function SettingsPage() {
 
       <div className="card space-y-3">
         <div>
-          <h2 className="font-bold text-gray-900">Counter nomor item</h2>
+          <h2 className="font-bold text-gray-900">Counter nomor &amp; label</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Atur nomor untuk item berikutnya. Berguna untuk jaga-jaga kalau banyak yang dihapus/diarsip
-            dan kamu ingin melanjutkan dari nomor tertentu.
+            Atur nomor item & label folder untuk postingan/item berikutnya. Berguna kalau banyak yang
+            dihapus/diarsip dan kamu ingin melanjutkan dari nomor tertentu.
           </p>
         </div>
         <div>
@@ -156,6 +177,26 @@ export default function SettingsPage() {
           <p className="mt-1 text-xs text-gray-400">
             Catatan: demi keamanan, kalau masih ada item dengan nomor lebih tinggi, sistem otomatis
             melanjutkan dari nomor tertinggi itu (mencegah nomor bentrok).
+          </p>
+        </div>
+
+        <div>
+          <label className="label">Label folder berikutnya mulai dari</label>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min={1}
+              className="input w-40"
+              value={nextFolder}
+              onChange={(e) => setNextFolder(e.target.value)}
+            />
+            <button onClick={saveNextFolder} disabled={savingFolder} className="btn-secondary">
+              {savingFolder ? 'Menyimpan…' : 'Set'}
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-gray-400">
+            Postingan baru otomatis pakai label berurutan 3 digit (001, 002, …). Angka tertinggi yang
+            sudah ada tetap dihormati agar tidak bentrok.
           </p>
         </div>
       </div>

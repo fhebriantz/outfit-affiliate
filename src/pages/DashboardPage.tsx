@@ -10,6 +10,7 @@ import {
   listAllItems,
   listItems,
   listPostings,
+  reserveFolderNumber,
   reserveNumbers,
   restorePosting,
   updatePosting,
@@ -23,7 +24,7 @@ import {
   incompleteReasons,
   isPostingSynced,
   matchStageFilter,
-  nextFolderLabel,
+  padFolderLabel,
   todayISO,
   type StageFilter,
 } from '../lib/format'
@@ -95,7 +96,7 @@ export default function DashboardPage() {
     try {
       const p = await createPosting(user.id, {
         tanggal: todayISO(),
-        label: nextFolderLabel(postings.length),
+        label: padFolderLabel(await reserveFolderNumber(user.id)),
         status: 'draft',
       })
       navigate(`/posting/${p.id}`)
@@ -111,7 +112,7 @@ export default function DashboardPage() {
       const items = await listItems(p.id)
       const dup = await createPosting(user.id, {
         tanggal: todayISO(),
-        label: nextFolderLabel(postings.length),
+        label: padFolderLabel(await reserveFolderNumber(user.id)),
         ref_nama: p.ref_nama,
         caption_hashtags: p.caption_hashtags,
         status: 'draft',

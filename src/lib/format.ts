@@ -27,9 +27,9 @@ export function formatTanggalIndo(input: Date | string): string {
   return `${d} ${namaBulan} ${y}`
 }
 
-/** Label folder default: (jumlah postingan + 1) dipad jadi 3 digit -> "001", "002", ... */
-export function nextFolderLabel(existingCount: number): string {
-  return String(existingCount + 1).padStart(3, '0')
+/** Pad nomor folder jadi 3 digit: 1 -> "001", 12 -> "012". */
+export function padFolderLabel(n: number): string {
+  return String(n).padStart(3, '0')
 }
 
 /** Tanggal hari ini dalam format "YYYY-MM-DD" (zona waktu lokal). */

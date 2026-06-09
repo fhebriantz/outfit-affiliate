@@ -43,6 +43,7 @@ export interface Settings {
   default_hashtags: string
   kategori_presets: string[]
   last_number: number
+  last_folder: number
 }
 
 export const DEFAULT_HASHTAGS = '#recomendationoutfithijab #hijaboutfit #hijabootd'
