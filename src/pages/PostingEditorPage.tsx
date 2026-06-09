@@ -157,11 +157,6 @@ export default function PostingEditorPage() {
     }
   }
 
-  function changeTanggal(tanggal: string) {
-    // Auto-isi label dari tanggal (label tetap bisa diedit manual sesudahnya).
-    savePosting({ tanggal, label: formatTanggalIndo(tanggal) })
-  }
-
   // ---------- Item ----------
   async function addItem() {
     if (!posting || !user) return
@@ -383,23 +378,15 @@ export default function PostingEditorPage() {
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="label">Tanggal posting</label>
-            <input
-              type="date"
-              className="input"
-              value={posting.tanggal}
-              onChange={(e) => changeTanggal(e.target.value)}
-            />
-          </div>
-          <div>
             <label className="label">Label folder</label>
             <input
               className="input"
               value={posting.label ?? ''}
               onChange={(e) => setPosting({ ...posting, label: e.target.value })}
               onBlur={(e) => savePosting({ label: e.target.value })}
-              placeholder="9 Juni 2026"
+              placeholder="001"
             />
+            <p className="mt-1 text-xs text-gray-400">Auto-increment (001, 002, …), bisa diedit.</p>
           </div>
           <div>
             <label className="label">Nama referensi</label>

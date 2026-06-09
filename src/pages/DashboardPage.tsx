@@ -23,6 +23,7 @@ import {
   incompleteReasons,
   isPostingSynced,
   matchStageFilter,
+  nextFolderLabel,
   todayISO,
   type StageFilter,
 } from '../lib/format'
@@ -92,10 +93,9 @@ export default function DashboardPage() {
     if (!user) return
     setCreating(true)
     try {
-      const tanggal = todayISO()
       const p = await createPosting(user.id, {
-        tanggal,
-        label: formatTanggalIndo(tanggal),
+        tanggal: todayISO(),
+        label: nextFolderLabel(postings.length),
         status: 'draft',
       })
       navigate(`/posting/${p.id}`)
@@ -109,10 +109,9 @@ export default function DashboardPage() {
     if (!user) return
     try {
       const items = await listItems(p.id)
-      const tanggal = todayISO()
       const dup = await createPosting(user.id, {
-        tanggal,
-        label: formatTanggalIndo(tanggal),
+        tanggal: todayISO(),
+        label: nextFolderLabel(postings.length),
         ref_nama: p.ref_nama,
         caption_hashtags: p.caption_hashtags,
         status: 'draft',

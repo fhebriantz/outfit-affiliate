@@ -27,6 +27,11 @@ export function formatTanggalIndo(input: Date | string): string {
   return `${d} ${namaBulan} ${y}`
 }
 
+/** Label folder default: (jumlah postingan + 1) dipad jadi 3 digit -> "001", "002", ... */
+export function nextFolderLabel(existingCount: number): string {
+  return String(existingCount + 1).padStart(3, '0')
+}
+
 /** Tanggal hari ini dalam format "YYYY-MM-DD" (zona waktu lokal). */
 export function todayISO(): string {
   const now = new Date()
