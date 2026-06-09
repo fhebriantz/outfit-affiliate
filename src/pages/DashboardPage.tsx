@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import {
+  archivePosting,
   createItem,
   createPosting,
   deletePosting,
@@ -10,6 +11,7 @@ import {
   listItems,
   listPostings,
   reserveNumbers,
+  restorePosting,
   updatePosting,
 } from '../lib/db'
 import { imagePublicUrl, listAllImages } from '../lib/images'
@@ -42,6 +44,7 @@ export default function DashboardPage() {
   const [imagesByPosting, setImagesByPosting] = useState<Record<string, PostingImage[]>>({})
   const [filter, setFilter] = useState<StageFilter>('all')
   const [query, setQuery] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
   function toggleExpand(idStr: string) {
@@ -142,21 +145,49 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleDelete(p: Posting) {
-    if (!confirm(`Hapus postingan "${p.label ?? p.tanggal}"? Semua item di dalamnya ikut terhapus.`))
+  async function handleArchive(p: Posting) {
+    if (!confirm(`Pindahkan "${p.label ?? p.tanggal}" ke arsip? Bisa dipulihkan lagi nanti.`)) return
+    try {
+      await archivePosting(p.id, new Date().toISOString())
+      toast('Dipindahkan ke arsip')
+      load()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal mengarsip', 'err')
+    }
+  }
+
+  async function handleRestore(p: Posting) {
+    try {
+      await restorePosting(p.id)
+      toast('Postingan dipulihkan')
+      load()
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal memulihkan', 'err')
+    }
+  }
+
+  async function handleDeletePermanent(p: Posting) {
+    if (
+      !confirm(
+        `Hapus PERMANEN "${p.label ?? p.tanggal}"? Semua item & gambar ikut terhapus dan TIDAK bisa dikembalikan.`,
+      )
+    )
       return
     try {
       await deletePosting(p.id)
-      toast('Postingan dihapus')
+      toast('Dihapus permanen')
       load()
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Gagal menghapus', 'err')
     }
   }
 
+  const activePostings = useMemo(() => postings.filter((p) => !p.archived_at), [postings])
+  const archivedPostings = useMemo(() => postings.filter((p) => !!p.archived_at), [postings])
+
   const cards = useMemo(
     () =>
-      postings.map((p) => {
+      activePostings.map((p) => {
         const items = itemsByPosting[p.id] ?? []
         const images = imagesByPosting[p.id] ?? []
         const imageCount = images.length
@@ -165,7 +196,7 @@ export default function DashboardPage() {
         const reasons = incompleteReasons(stage, checks)
         return { p, items, images, imageCount, stage, reasons, synced: isPostingSynced(checks) }
       }),
-    [postings, itemsByPosting, imagesByPosting],
+    [activePostings, itemsByPosting, imagesByPosting],
   )
 
   const visibleCards = useMemo(() => {
@@ -212,13 +243,65 @@ export default function DashboardPage() {
     { key: 'done', label: 'Lengkap' },
   ]
 
+  if (showArchived) {
+    return (
+      <div>
+        <div className="mb-5 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-900">Arsip</h1>
+          <button onClick={() => setShowArchived(false)} className="btn-secondary">
+            ← Kembali ke postingan
+          </button>
+        </div>
+        {archivedPostings.length === 0 ? (
+          <div className="card text-center text-gray-500">
+            <p className="text-sm">Arsip kosong.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {archivedPostings.map((p) => (
+              <div key={p.id} className="card flex items-center justify-between gap-3 p-3 sm:p-4">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-gray-900">
+                    {p.label || formatTanggalIndo(p.tanggal)}
+                  </p>
+                  <p className="mt-0.5 truncate text-sm text-gray-500">
+                    {(itemsByPosting[p.id] ?? []).length} item
+                    {p.ref_nama ? ` · ref: ${p.ref_nama}` : ''}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <button onClick={() => handleRestore(p)} className="btn-ghost text-xs text-sec-700">
+                    Pulihkan
+                  </button>
+                  <button
+                    onClick={() => handleDeletePermanent(p)}
+                    className="btn-ghost text-xs text-red-600"
+                  >
+                    Hapus permanen
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className="mb-5 flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Postingan</h1>
-        <button onClick={handleCreate} disabled={creating} className="btn-primary">
-          {creating ? 'Membuat…' : '+ Postingan baru'}
-        </button>
+        <div className="flex items-center gap-2">
+          {archivedPostings.length > 0 && (
+            <button onClick={() => setShowArchived(true)} className="btn-secondary">
+              Arsip ({archivedPostings.length})
+            </button>
+          )}
+          <button onClick={handleCreate} disabled={creating} className="btn-primary">
+            {creating ? 'Membuat…' : '+ Postingan baru'}
+          </button>
+        </div>
       </div>
 
       {/* Pencarian */}
@@ -345,8 +428,8 @@ export default function DashboardPage() {
                     <button onClick={() => handleDuplicate(p)} className="btn-ghost text-xs">
                       Duplikat
                     </button>
-                    <button onClick={() => handleDelete(p)} className="btn-ghost text-xs text-red-600">
-                      Hapus
+                    <button onClick={() => handleArchive(p)} className="btn-ghost text-xs text-amber-600">
+                      Arsip
                     </button>
                   </div>
                 </div>

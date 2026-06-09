@@ -12,6 +12,7 @@ export interface Posting {
   catatan: string | null
   drive_url: string | null
   status: PostingStatus
+  archived_at: string | null
   created_at: string
 }
 

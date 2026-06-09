@@ -38,6 +38,18 @@ export async function deletePosting(id: string): Promise<void> {
   if (error) throw error
 }
 
+/** Soft delete: pindahkan postingan ke arsip (item & nomor tetap utuh). */
+export async function archivePosting(id: string, when: string): Promise<void> {
+  const { error } = await supabase.from('postings').update({ archived_at: when }).eq('id', id)
+  if (error) throw error
+}
+
+/** Kembalikan postingan dari arsip. */
+export async function restorePosting(id: string): Promise<void> {
+  const { error } = await supabase.from('postings').update({ archived_at: null }).eq('id', id)
+  if (error) throw error
+}
+
 // ---------- Items ----------
 export async function listItems(postingId: string): Promise<Item[]> {
   const { data, error } = await supabase

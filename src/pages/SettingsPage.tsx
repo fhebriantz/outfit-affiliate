@@ -9,8 +9,10 @@ export default function SettingsPage() {
   const { toast } = useToast()
   const [hashtags, setHashtags] = useState('')
   const [kategori, setKategori] = useState('')
+  const [nextStart, setNextStart] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingNum, setSavingNum] = useState(false)
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
@@ -19,6 +21,7 @@ export default function SettingsPage() {
       .then((s) => {
         setHashtags(s.default_hashtags)
         setKategori(s.kategori_presets.join(', '))
+        setNextStart(String((s.last_number ?? 0) + 1))
       })
       .catch((e) => toast(e instanceof Error ? e.message : 'Gagal memuat pengaturan', 'err'))
       .finally(() => setLoading(false))
@@ -42,6 +45,25 @@ export default function SettingsPage() {
       toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'err')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function saveNextStart() {
+    if (!user) return
+    const n = Number(nextStart)
+    if (!Number.isFinite(n) || n < 1) {
+      toast('Masukkan angka >= 1', 'err')
+      return
+    }
+    setSavingNum(true)
+    try {
+      // Item berikutnya = last_number + 1, jadi simpan last_number = n - 1.
+      await saveSettings(user.id, { last_number: Math.floor(n) - 1 })
+      toast(`Item berikutnya akan mulai dari nomor ${Math.floor(n)}`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'err')
+    } finally {
+      setSavingNum(false)
     }
   }
 
@@ -107,6 +129,35 @@ export default function SettingsPage() {
         <button onClick={save} disabled={saving} className="btn-primary">
           {saving ? 'Menyimpan…' : 'Simpan'}
         </button>
+      </div>
+
+      <div className="card space-y-3">
+        <div>
+          <h2 className="font-bold text-gray-900">Counter nomor item</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Atur nomor untuk item berikutnya. Berguna untuk jaga-jaga kalau banyak yang dihapus/diarsip
+            dan kamu ingin melanjutkan dari nomor tertentu.
+          </p>
+        </div>
+        <div>
+          <label className="label">Item berikutnya mulai dari nomor</label>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              min={1}
+              className="input w-40"
+              value={nextStart}
+              onChange={(e) => setNextStart(e.target.value)}
+            />
+            <button onClick={saveNextStart} disabled={savingNum} className="btn-secondary">
+              {savingNum ? 'Menyimpan…' : 'Set'}
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-gray-400">
+            Catatan: demi keamanan, kalau masih ada item dengan nomor lebih tinggi, sistem otomatis
+            melanjutkan dari nomor tertinggi itu (mencegah nomor bentrok).
+          </p>
+        </div>
       </div>
 
       <div className="card space-y-3">

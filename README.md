@@ -63,6 +63,8 @@ Dibuat dengan **React + Vite + TypeScript + Tailwind**, data tersimpan di **Supa
 
 **Lain-lain**
 - Login Supabase + **Row Level Security** (data privat per user).
+- **Arsip**: tombol "Arsip" memindahkan postingan ke arsip (soft delete) — bisa **Pulihkan** atau **Hapus permanen**. Nomor item tidak terpengaruh.
+- **Counter nomor monotonic** (`settings.last_number`): nomor item tidak pernah dipakai ulang walau item dihapus/diarsip. Bisa diatur manual di Pengaturan (jaga-jaga kalau ingin melanjutkan dari nomor tertentu).
 - **Export/backup ke JSON**.
 - **PWA**: bisa "Add to Home Screen" di HP.
 

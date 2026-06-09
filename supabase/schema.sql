@@ -18,11 +18,13 @@ create table if not exists public.postings (
   catatan text,
   drive_url text,
   status text not null default 'draft',
+  archived_at timestamptz,
   created_at timestamptz not null default now()
 );
 
 -- Tambah kolom untuk instalasi lama (aman dijalankan ulang).
 alter table public.postings add column if not exists drive_url text;
+alter table public.postings add column if not exists archived_at timestamptz;
 
 -- ---------- Tabel: items ----------
 create table if not exists public.items (
