@@ -137,8 +137,8 @@ export default function PostingEditorPage() {
     return map
   }, [items, dedupPool, postingLabels])
   const caption = useMemo(
-    () => buildCaption(items, effectiveHashtags),
-    [items, effectiveHashtags],
+    () => buildCaption(items, effectiveHashtags, posting?.catatan ?? ''),
+    [items, effectiveHashtags, posting?.catatan],
   )
   const checks = useMemo(
     () => (posting ? computeSyncChecks(posting, items) : []),
@@ -468,14 +468,17 @@ export default function PostingEditorPage() {
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className="label">Catatan</label>
-            <input
-              className="input"
+            <label className="label">Title (baris pembuka caption)</label>
+            <textarea
+              className="input min-h-[70px]"
               value={posting.catatan ?? ''}
               onChange={(e) => setPosting({ ...posting, catatan: e.target.value })}
               onBlur={(e) => savePosting({ catatan: e.target.value || null })}
-              placeholder="Catatan bebas…"
+              placeholder="mis. Pashmina Oval Instan udah ada magnet super rekat… By @dimiwear.id"
             />
+            <p className="mt-1 text-xs text-gray-400">
+              Otomatis jadi baris paling atas caption, di atas “Outfit yang aku pake”.
+            </p>
           </div>
         </div>
         <div className="flex flex-wrap gap-4">

@@ -67,13 +67,19 @@ export function buildSourceBulk(items: Item[], opts: { onlyPending?: boolean } =
 
 /**
  * Susun caption TikTok sesuai template:
+ *   {title}                 <- baris pembuka (opsional, dari field Title)
  *   Outfit yang aku pake
  *   -blouse : no 1
  *   -rok : no 2
  *   ...
  *   #hashtag ...
  */
-export function buildCaption(items: Item[], hashtags: string, intro = 'Outfit yang aku pake'): string {
+export function buildCaption(
+  items: Item[],
+  hashtags: string,
+  title = '',
+  intro = 'Outfit yang aku pake',
+): string {
   const baris = items
     .slice()
     .sort((a, b) => a.urutan - b.urutan)
@@ -81,7 +87,9 @@ export function buildCaption(items: Item[], hashtags: string, intro = 'Outfit ya
       const kat = (it.kategori ?? 'item').trim() || 'item'
       return `-${kat} : no ${it.my_number}`
     })
-  const parts = [intro, ...baris]
+  const parts: string[] = []
+  if (title && title.trim()) parts.push(title.trim())
+  parts.push(intro, ...baris)
   if (hashtags && hashtags.trim()) parts.push(hashtags.trim())
   return parts.join('\n')
 }
