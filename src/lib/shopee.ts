@@ -58,7 +58,8 @@ export async function expandSourceLink(raw: string | null | undefined): Promise<
   const url = (raw ?? '').trim()
   if (!url) return ''
   if (parseShopeeKey(url)) return url // sudah bisa diparse, tak perlu resolve
-  if (!/shopee\.co\.id/i.test(url) && !/shp\.ee/i.test(url)) return url
+  // Domain Shopee yang mungkin berupa short link.
+  if (!/(shopee\.co\.id|shp\.ee|shope\.ee)/i.test(url)) return url
   try {
     const res = await fetch(`/api/resolve?url=${encodeURIComponent(url)}`)
     if (!res.ok) return url
