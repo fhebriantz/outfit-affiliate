@@ -425,10 +425,16 @@ export default function DashboardPage() {
                       <option value="generated">Generate</option>
                       <option value="posted">Posted</option>
                     </select>
-                    <button onClick={() => handleDuplicate(p)} className="btn-ghost text-xs">
+                    <button
+                      onClick={() => handleDuplicate(p)}
+                      className="rounded px-2 py-0.5 text-xs text-gray-600 transition hover:bg-gray-100"
+                    >
                       Duplikat
                     </button>
-                    <button onClick={() => handleArchive(p)} className="btn-ghost text-xs text-amber-600">
+                    <button
+                      onClick={() => handleArchive(p)}
+                      className="rounded px-2 py-0.5 text-xs text-amber-600 transition hover:bg-amber-50"
+                    >
                       Arsip
                     </button>
                   </div>
