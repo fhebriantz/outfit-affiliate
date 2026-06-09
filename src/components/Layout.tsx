@@ -27,6 +27,9 @@ export default function Layout({ children }: { children: ReactNode }) {
             <NavLink to="/" end className={navClass}>
               Postingan
             </NavLink>
+            <NavLink to="/produk" className={navClass}>
+              Produk
+            </NavLink>
             <NavLink to="/settings" className={navClass}>
               Pengaturan
             </NavLink>

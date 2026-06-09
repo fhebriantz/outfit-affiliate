@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import PostingEditorPage from './pages/PostingEditorPage'
+import ProductsPage from './pages/ProductsPage'
 import SettingsPage from './pages/SettingsPage'
 import { isSupabaseConfigured } from './lib/supabase'
 
@@ -49,6 +50,16 @@ export default function App() {
             <ProtectedRoute>
               <Layout>
                 <PostingEditorPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/produk"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <ProductsPage />
               </Layout>
             </ProtectedRoute>
           }
