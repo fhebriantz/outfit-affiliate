@@ -36,7 +36,8 @@ Dibuat dengan **React + Vite + TypeScript + Tailwind**, data tersimpan di **Supa
 - **Duplikat postingan** (salin struktur kategori & nomor) untuk hari berikutnya.
 
 **Deteksi duplikat**
-- Mengenali produk yang sama dari link Shopee berdasarkan `{shop_id}/{product_id}` (abaikan `www` & query `?...`). Kalau produk sudah pernah dipakai → tawarkan **pakai ulang nomor & link affiliate lama**.
+- Mengenali produk yang sama dari link Shopee berdasarkan `{shop_id}/{product_id}` (abaikan `www`, query `?...`, dan format link: `/product/...`, `/{username}/...` mobile, `-i.{shop}.{item}`). Kalau produk sudah pernah dipakai → tawarkan **pakai ulang nomor & link affiliate lama**.
+- **Short link** (`s.shopee.co.id/xxx`) otomatis diperluas dulu via serverless function `/api/resolve` (jalan di Vercel) supaya tetap bisa dideteksi duplikatnya. Di dev lokal fungsi ini tidak aktif, jadi short link dibiarkan apa adanya (alur tetap jalan).
 
 **Link & caption**
 - **Copy semua link sumber** dalam bentuk bersih (`https://shopee.co.id/product/{shop}/{item}`, tanpa query), dipisah per baris → tinggal paste ke aplikasi affiliate Shopee. Default hanya menampilkan item yang belum punya affiliate.

@@ -25,7 +25,7 @@ import {
   isPostingSynced,
   parseBulkLinks,
 } from '../lib/format'
-import { findExistingByKey, parseShopeeKey } from '../lib/shopee'
+import { expandSourceLink, findExistingByKey, parseShopeeKey } from '../lib/shopee'
 import CopyButton from '../components/CopyButton'
 import SyncBadge from '../components/SyncBadge'
 import ItemRow from '../components/ItemRow'
@@ -187,13 +187,15 @@ export default function PostingEditorPage() {
   // Nomor lanjut otomatis; produk yang sudah pernah dipakai langsung reuse nomor & affiliate.
   async function addItemsFromSources() {
     if (!posting || !user) return
-    const links = parseBulkLinks(sourcePaste)
-    if (links.length === 0) {
+    const rawLinks = parseBulkLinks(sourcePaste)
+    if (rawLinks.length === 0) {
       toast('Tidak ada link terdeteksi', 'err')
       return
     }
     setAddingBulk(true)
     try {
+      // Perluas short link Shopee dulu (paralel) supaya deteksi duplikat akurat.
+      const links = await Promise.all(rawLinks.map((l) => expandSourceLink(l)))
       let nextNum = (await getMaxNumber()) + 1
       let urutan = items.reduce((m, it) => Math.max(m, it.urutan), 0) + 1
       const pool = [...dedupPool]
@@ -235,6 +237,17 @@ export default function PostingEditorPage() {
   }
 
   async function saveItem(itemId: string, patch: Partial<Item>) {
+    // Kalau link sumber yang dimasukkan short link, perluas dulu jadi URL panjang.
+    if ('source_link' in patch) {
+      const orig = (patch.source_link as string | null) ?? ''
+      if (orig && !parseShopeeKey(orig)) {
+        const expanded = await expandSourceLink(orig)
+        if (expanded && expanded !== orig) {
+          patch = { ...patch, source_link: expanded }
+          toast('Short link diperluas')
+        }
+      }
+    }
     setItems((prev) => prev.map((it) => (it.id === itemId ? { ...it, ...patch } : it)))
     try {
       await updateItem(itemId, patch)
@@ -488,7 +501,7 @@ export default function PostingEditorPage() {
           />
           <div className="mt-2 flex items-center justify-between">
             <span className="text-xs text-gray-400">
-              {parseBulkLinks(sourcePaste).length} link · nomor & duplikat otomatis
+              {parseBulkLinks(sourcePaste).length} link · nomor, duplikat & short link otomatis
             </span>
             <button
               onClick={addItemsFromSources}
