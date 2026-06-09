@@ -1,0 +1,17 @@
+{
+  "name": "Outfit Affiliate Manager",
+  "short_name": "Affiliate",
+  "description": "Kelola postingan affiliate outfit per tanggal: nomor, link sumber, link affiliate, caption.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fdf2f8",
+  "theme_color": "#db2777",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
