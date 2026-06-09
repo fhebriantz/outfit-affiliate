@@ -6,10 +6,10 @@ import {
   createItem,
   createPosting,
   deletePosting,
-  getMaxNumber,
   listAllItems,
   listItems,
   listPostings,
+  reserveNumbers,
   updatePosting,
 } from '../lib/db'
 import { imagePublicUrl, listAllImages } from '../lib/images'
@@ -114,15 +114,15 @@ export default function DashboardPage() {
         caption_hashtags: p.caption_hashtags,
         status: 'draft',
       })
-      // Salin struktur kategori saja (tanpa link), nomor LANJUT otomatis dari nomor terakhir.
-      let nextNum = (await getMaxNumber()) + 1
+      // Salin struktur kategori saja (tanpa link), nomor LANJUT otomatis dari counter.
       const ordered = items.slice().sort((a, b) => a.urutan - b.urutan)
-      for (const it of ordered) {
+      const start = await reserveNumbers(user.id, ordered.length)
+      for (let i = 0; i < ordered.length; i++) {
         await createItem(user.id, {
           posting_id: dup.id,
-          urutan: it.urutan,
-          my_number: nextNum++,
-          kategori: it.kategori,
+          urutan: ordered[i].urutan,
+          my_number: start + i,
+          kategori: ordered[i].kategori,
         })
       }
       toast('Postingan diduplikat')

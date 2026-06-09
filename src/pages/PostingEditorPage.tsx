@@ -5,12 +5,12 @@ import { useToast } from '../context/ToastContext'
 import {
   createItem,
   deleteItem as dbDeleteItem,
-  getMaxNumber,
   getPosting,
   getSettings,
   listAllItems,
   listItems,
   listPostings,
+  reserveNumbers,
   updateItem,
   updatePosting,
 } from '../lib/db'
@@ -167,12 +167,12 @@ export default function PostingEditorPage() {
     if (!posting || !user) return
     setAddingItem(true)
     try {
-      const maxNum = await getMaxNumber()
+      const myNumber = await reserveNumbers(user.id, 1)
       const maxUrutan = items.reduce((m, it) => Math.max(m, it.urutan), 0)
       const created = await createItem(user.id, {
         posting_id: posting.id,
         urutan: maxUrutan + 1,
-        my_number: maxNum + 1,
+        my_number: myNumber,
         kategori: presets[0] ?? '',
       })
       setItems((prev) => [...prev, created])
@@ -196,24 +196,23 @@ export default function PostingEditorPage() {
     try {
       // Perluas short link Shopee dulu (paralel) supaya deteksi duplikat akurat.
       const links = await Promise.all(rawLinks.map((l) => expandSourceLink(l)))
-      let nextNum = (await getMaxNumber()) + 1
       let urutan = items.reduce((m, it) => Math.max(m, it.urutan), 0) + 1
       const pool = [...dedupPool]
       const created: Item[] = []
       let reusedCount = 0
       for (const link of links) {
-        let myNumber = nextNum
+        let myNumber: number
         let affiliate: string | null = null
         const key = parseShopeeKey(link)
-        if (key) {
-          const ex = findExistingByKey(pool, key, '')
-          if (ex) {
-            myNumber = ex.my_number
-            affiliate = (ex.affiliate_link ?? '').trim() ? ex.affiliate_link : null
-            reusedCount++
-          }
+        const ex = key ? findExistingByKey(pool, key, '') : null
+        if (ex) {
+          myNumber = ex.my_number
+          affiliate = (ex.affiliate_link ?? '').trim() ? ex.affiliate_link : null
+          reusedCount++
+        } else {
+          // Produk baru -> pesan 1 nomor dari counter (tidak terpengaruh penghapusan).
+          myNumber = await reserveNumbers(user.id, 1)
         }
-        if (myNumber === nextNum) nextNum++ // hanya naik kalau produk baru
         const item = await createItem(user.id, {
           posting_id: posting.id,
           urutan,

@@ -96,6 +96,7 @@ export async function getSettings(userId: string): Promise<Settings> {
     user_id: userId,
     default_hashtags: DEFAULT_HASHTAGS,
     kategori_presets: DEFAULT_KATEGORI,
+    last_number: 0,
   }
   const { error: insErr } = await supabase.from('settings').insert(def)
   if (insErr) throw insErr
@@ -105,4 +106,19 @@ export async function getSettings(userId: string): Promise<Settings> {
 export async function saveSettings(userId: string, fields: Partial<Settings>): Promise<void> {
   const { error } = await supabase.from('settings').upsert({ user_id: userId, ...fields })
   if (error) throw error
+}
+
+/**
+ * Pesan `count` nomor baru memakai counter monotonic di settings.last_number.
+ * Counter hanya pernah NAIK — menghapus item (termasuk item bernomor tertinggi)
+ * tidak akan membuat nomor terpakai ulang. Mengembalikan nomor PERTAMA yang dipesan.
+ * Aman untuk data lama: base diambil dari max(counter, nomor item tertinggi).
+ */
+export async function reserveNumbers(userId: string, count: number): Promise<number> {
+  const settings = await getSettings(userId)
+  const maxItem = await getMaxNumber()
+  const base = Math.max(settings.last_number ?? 0, maxItem)
+  const start = base + 1
+  await saveSettings(userId, { last_number: base + count })
+  return start
 }

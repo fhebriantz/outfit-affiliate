@@ -41,6 +41,7 @@ export interface Settings {
   user_id: string
   default_hashtags: string
   kategori_presets: string[]
+  last_number: number
 }
 
 export const DEFAULT_HASHTAGS = '#recomendationoutfithijab #hijaboutfit #hijabootd'

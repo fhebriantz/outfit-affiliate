@@ -57,8 +57,11 @@ create index if not exists images_posting_id_idx on public.images (posting_id);
 create table if not exists public.settings (
   user_id uuid primary key references auth.users (id) on delete cascade,
   default_hashtags text not null default '#recomendationoutfithijab #hijaboutfit #hijabootd',
-  kategori_presets text[] not null default '{blouse,rok,sepatu,outer,celana,dress,kerudung,tas}'
+  kategori_presets text[] not null default '{blouse,rok,sepatu,outer,celana,dress,kerudung,tas}',
+  last_number int not null default 0   -- counter nomor item (monotonic, tidak pernah turun)
 );
+-- Tambah kolom counter untuk instalasi lama (aman dijalankan ulang).
+alter table public.settings add column if not exists last_number int not null default 0;
 
 -- =============================================================
 -- Row Level Security (RLS): tiap user hanya bisa lihat datanya sendiri
