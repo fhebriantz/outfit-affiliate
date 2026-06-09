@@ -314,8 +314,19 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Filter tahap */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      {/* Filter tahap: dropdown di HP, chip di layar lebar */}
+      <select
+        value={filter}
+        onChange={(e) => setFilter(e.target.value as StageFilter)}
+        className="input mb-4 sm:hidden"
+      >
+        {FILTERS.map((f) => (
+          <option key={f.key} value={f.key}>
+            {f.label} ({counts[f.key]})
+          </option>
+        ))}
+      </select>
+      <div className="mb-4 hidden flex-wrap gap-2 sm:flex">
         {FILTERS.map((f) => (
           <button
             key={f.key}

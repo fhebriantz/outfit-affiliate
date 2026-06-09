@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useToast } from '../context/ToastContext'
-import { listAllItems, listPostings } from '../lib/db'
+import { listAllItems, listPostings, updateItem } from '../lib/db'
 import { canonicalShopeeUrl, parseShopeeKey } from '../lib/shopee'
 import { formatTanggalIndo } from '../lib/format'
 import type { Item } from '../lib/types'
@@ -9,9 +9,31 @@ import CopyButton from '../components/CopyButton'
 interface Product {
   key: string
   rep: Item
+  items: Item[]
   count: number
   lastLabel: string
   lastTanggal: string
+}
+
+// Input nomor katalog yang bisa diedit; simpan saat blur.
+function ProductNumber({ value, onSave }: { value: number; onSave: (n: number) => void }) {
+  const [v, setV] = useState(String(value))
+  useEffect(() => setV(String(value)), [value])
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      value={v}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => {
+        const n = Math.floor(Number(v))
+        if (Number.isFinite(n) && n >= 1 && n !== value) onSave(n)
+        else setV(String(value))
+      }}
+      title="Klik untuk ubah nomor katalog"
+      className="h-9 w-12 shrink-0 rounded-lg bg-brand-50 text-center text-sm font-bold text-brand-700 outline-none focus:ring-2 focus:ring-brand-300"
+    />
+  )
 }
 
 export default function ProductsPage() {
@@ -52,6 +74,7 @@ export default function ProductsPage() {
           return {
             key,
             rep,
+            items: its,
             count: its.length,
             lastLabel: labelById[lastId] ?? '',
             lastTanggal: tanggalById[lastId] ?? '',
@@ -79,6 +102,27 @@ export default function ProductsPage() {
         .includes(q),
     )
   }, [products, query])
+
+  // Ubah nomor katalog: update SEMUA item produk ini (di semua postingan) agar konsisten.
+  async function saveNumber(prod: Product, n: number) {
+    try {
+      await Promise.all(prod.items.map((it) => updateItem(it.id, { my_number: n })))
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.key === prod.key
+            ? {
+                ...p,
+                rep: { ...p.rep, my_number: n },
+                items: p.items.map((it) => ({ ...it, my_number: n })),
+              }
+            : p,
+        ),
+      )
+      toast(`Nomor diubah ke ${n} (${prod.count} item)`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal ubah nomor', 'err')
+    }
+  }
 
   return (
     <div>
@@ -115,9 +159,7 @@ export default function ProductsPage() {
             const aff = p.rep.affiliate_link ?? ''
             return (
               <div key={p.key} className="card flex items-start gap-3 p-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-sm font-bold text-brand-700">
-                  {p.rep.my_number}
-                </span>
+                <ProductNumber value={p.rep.my_number} onSave={(n) => saveNumber(p, n)} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-gray-900">{p.rep.kategori || 'item'}</span>
