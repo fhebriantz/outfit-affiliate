@@ -23,7 +23,7 @@ export default function SettingsPage() {
       .catch((e) => toast(e instanceof Error ? e.message : 'Gagal memuat pengaturan', 'err'))
       .finally(() => setLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+  }, [user?.id])
 
   async function save() {
     if (!user) return

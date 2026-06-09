@@ -82,7 +82,7 @@ export default function PostingEditorPage() {
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, user])
+  }, [id, user?.id])
 
   const sortedItems = useMemo(
     () => items.slice().sort((a, b) => a.urutan - b.urutan),

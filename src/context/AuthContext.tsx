@@ -23,7 +23,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession)
+      // Pertahankan referensi sesi lama kalau token tidak berubah, supaya
+      // pindah tab / fokus tidak memicu re-render & reload data tak perlu.
+      setSession((prev) =>
+        prev?.access_token === newSession?.access_token ? prev : newSession,
+      )
     })
     return () => sub.subscription.unsubscribe()
   }, [])
