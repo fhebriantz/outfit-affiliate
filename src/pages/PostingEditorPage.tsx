@@ -231,6 +231,9 @@ export default function PostingEditorPage() {
   }
 
   async function saveItem(itemId: string, patch: Partial<Item>) {
+    const before = items.find((i) => i.id === itemId)
+    const oldKey = parseShopeeKey(before?.source_link)
+
     // Kalau link sumber yang dimasukkan short link, perluas dulu jadi URL panjang.
     if ('source_link' in patch) {
       const orig = (patch.source_link as string | null) ?? ''
@@ -248,7 +251,32 @@ export default function PostingEditorPage() {
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Gagal menyimpan item', 'err')
     }
-    // Deteksi produk duplikat saat link sumber diubah.
+
+    // Sebarkan perubahan field produk ke item lain (postingan lain) yang produknya
+    // sama (link sumber sama). urutan TIDAK ikut (itu khusus per-postingan).
+    const propPatch: Partial<Item> = {}
+    for (const f of ['kategori', 'source_link', 'affiliate_link', 'my_number'] as const) {
+      if (f in patch) (propPatch as Record<string, unknown>)[f] = patch[f]
+    }
+    if (oldKey && Object.keys(propPatch).length > 0) {
+      const siblings = dedupPool.filter(
+        (i) => i.id !== itemId && parseShopeeKey(i.source_link) === oldKey,
+      )
+      if (siblings.length > 0) {
+        const ids = new Set(siblings.map((s) => s.id))
+        try {
+          await Promise.all(siblings.map((s) => updateItem(s.id, propPatch)))
+          setItems((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, ...propPatch } : it)))
+          setAllItems((prev) => prev.map((it) => (ids.has(it.id) ? { ...it, ...propPatch } : it)))
+          toast(`Ikut diterapkan ke ${siblings.length} item produk yang sama`)
+        } catch (e) {
+          toast(e instanceof Error ? e.message : 'Gagal menyebarkan ke produk sama', 'err')
+        }
+      }
+      return // item sudah punya identitas produk -> tidak perlu dialog reuse
+    }
+
+    // Item baru dapat link sumber (sebelumnya belum ada): tawarkan pakai ulang produk yang ada.
     if ('source_link' in patch) {
       const key = parseShopeeKey(patch.source_link as string | null)
       if (key) {
