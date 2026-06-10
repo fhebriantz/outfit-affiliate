@@ -100,12 +100,13 @@ export function buildCaption(
       const kat = (it.kategori ?? 'item').trim() || 'item'
       return `-${kat} : no ${it.my_number}`
     })
-  const parts: string[] = []
-  if (title && title.trim()) parts.push(title.trim())
-  parts.push(intro, ...baris)
-  parts.push(ORDER_INFO)
-  if (hashtags && hashtags.trim()) parts.push(hashtags.trim())
-  return parts.join('\n')
+  // Tiap section dipisah 1 baris kosong (join '\n\n'); di dalam section tetap '\n'.
+  const sections: string[] = []
+  if (title && title.trim()) sections.push(title.trim())
+  sections.push([intro, ...baris].join('\n'))
+  sections.push(ORDER_INFO)
+  if (hashtags && hashtags.trim()) sections.push(hashtags.trim())
+  return sections.join('\n\n')
 }
 
 /** Saran nomor berikutnya berdasarkan nomor global tertinggi yang sudah dipakai. */
