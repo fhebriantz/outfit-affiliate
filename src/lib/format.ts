@@ -114,7 +114,7 @@ export interface SyncCheck {
 
 /** Hitung daftar pemeriksaan sinkron untuk satu postingan. */
 export function computeSyncChecks(
-  posting: { ref_url: string | null; ref_tanggal: string | null },
+  posting: { ref_url: string | null },
   items: Item[],
 ): SyncCheck[] {
   const total = items.length
@@ -172,11 +172,6 @@ export function computeSyncChecks(
       key: 'ref_url',
       label: 'Link referensi TikTok terisi',
       ok: Boolean((posting.ref_url ?? '').trim()),
-    },
-    {
-      key: 'ref_tanggal',
-      label: 'Tanggal postingan referensi dicatat (verifikasi manual)',
-      ok: Boolean((posting.ref_tanggal ?? '').trim()),
     },
   ]
 }

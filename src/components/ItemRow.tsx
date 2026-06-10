@@ -113,7 +113,7 @@ export default function ItemRow({
       </div>
 
       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div>
+        <div className="sm:col-span-2">
           <label className="label">Kategori</label>
           <input
             className="input"
@@ -121,16 +121,6 @@ export default function ItemRow({
             placeholder="blouse / rok / sepatu"
             onChange={(e) => setDraft((d) => ({ ...d, kategori: e.target.value }))}
             onBlur={(e) => saveField('kategori', e.target.value)}
-          />
-        </div>
-        <div>
-          <label className="label">Kode referensi</label>
-          <input
-            className="input"
-            value={draft.ref_code}
-            placeholder="b 583"
-            onChange={(e) => setDraft((d) => ({ ...d, ref_code: e.target.value }))}
-            onBlur={(e) => saveField('ref_code', e.target.value)}
           />
         </div>
         <div className="sm:col-span-2">

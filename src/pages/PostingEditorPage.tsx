@@ -398,16 +398,6 @@ export default function PostingEditorPage() {
               placeholder="Kirana"
             />
           </div>
-          <div>
-            <label className="label">Tanggal postingan referensi</label>
-            <input
-              className="input"
-              value={posting.ref_tanggal ?? ''}
-              onChange={(e) => setPosting({ ...posting, ref_tanggal: e.target.value })}
-              onBlur={(e) => savePosting({ ref_tanggal: e.target.value || null })}
-              placeholder="9 Juni (untuk dicek manual)"
-            />
-          </div>
           <div className="sm:col-span-2">
             <label className="label">Link video referensi (TikTok)</label>
             <input
@@ -417,30 +407,6 @@ export default function PostingEditorPage() {
               onBlur={(e) => savePosting({ ref_url: e.target.value || null })}
               placeholder="https://www.tiktok.com/@kirana/video/..."
             />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="label">Link Google Drive (hasil generate)</label>
-            <div className="flex gap-1">
-              <input
-                className="input"
-                value={posting.drive_url ?? ''}
-                onChange={(e) => setPosting({ ...posting, drive_url: e.target.value })}
-                onBlur={(e) => savePosting({ drive_url: e.target.value || null })}
-                placeholder="https://drive.google.com/drive/folders/..."
-              />
-              <button
-                type="button"
-                onClick={openDrive}
-                className="btn-secondary shrink-0 whitespace-nowrap"
-                title="Buka Google Drive & salin nama folder"
-              >
-                Buka Drive
-              </button>
-            </div>
-            <p className="mt-1 text-xs text-gray-400">
-              Tombol “Buka Drive” menyalin nama folder ({posting.label || formatTanggalIndo(posting.tanggal)})
-              ke clipboard — tinggal bikin folder, paste namanya, lalu salin link folder ke sini.
-            </p>
           </div>
           <div>
             <label className="label">Status</label>
@@ -468,34 +434,16 @@ export default function PostingEditorPage() {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-4">
-          {posting.ref_url && (
-            <a
-              href={posting.ref_url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm font-medium text-sec-700 hover:underline"
-            >
-              Buka video referensi ↗
-            </a>
-          )}
-          {posting.drive_url && (
-            <a
-              href={posting.drive_url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm font-medium text-sec-700 hover:underline"
-            >
-              Buka folder Drive ↗
-            </a>
-          )}
-        </div>
-      </section>
-
-      {/* Gambar screenshot referensi */}
-      <section className="card space-y-3">
-        <h2 className="text-lg font-bold text-gray-900">Gambar screenshot</h2>
-        <ImageGallery postingId={posting.id} userId={posting.user_id} onCountChange={setImageCount} />
+        {posting.ref_url && (
+          <a
+            href={posting.ref_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm font-medium text-sec-700 hover:underline"
+          >
+            Buka video referensi ↗
+          </a>
+        )}
       </section>
 
       {/* Item produk */}
@@ -552,6 +500,48 @@ export default function PostingEditorPage() {
               />
             ))}
           </div>
+        )}
+      </section>
+
+      {/* Gambar screenshot referensi */}
+      <section className="card space-y-3">
+        <h2 className="text-lg font-bold text-gray-900">Gambar screenshot</h2>
+        <ImageGallery postingId={posting.id} userId={posting.user_id} onCountChange={setImageCount} />
+      </section>
+
+      {/* Link Google Drive (hasil generate) */}
+      <section className="card space-y-2">
+        <h2 className="text-lg font-bold text-gray-900">Link Google Drive (hasil generate)</h2>
+        <div className="flex gap-1">
+          <input
+            className="input"
+            value={posting.drive_url ?? ''}
+            onChange={(e) => setPosting({ ...posting, drive_url: e.target.value })}
+            onBlur={(e) => savePosting({ drive_url: e.target.value || null })}
+            placeholder="https://drive.google.com/drive/folders/..."
+          />
+          <button
+            type="button"
+            onClick={openDrive}
+            className="btn-secondary shrink-0 whitespace-nowrap"
+            title="Buka Google Drive & salin nama folder"
+          >
+            Buka Drive
+          </button>
+        </div>
+        <p className="text-xs text-gray-400">
+          Tombol “Buka Drive” menyalin nama folder ({posting.label || formatTanggalIndo(posting.tanggal)})
+          ke clipboard — tinggal bikin folder, paste namanya, lalu salin link folder ke sini.
+        </p>
+        {posting.drive_url && (
+          <a
+            href={posting.drive_url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm font-medium text-sec-700 hover:underline"
+          >
+            Buka folder Drive ↗
+          </a>
         )}
       </section>
 
