@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 import { listAllItems, listPostings, updateItem } from '../lib/db'
-import { canonicalShopeeUrl, parseShopeeKey } from '../lib/shopee'
+import { parseShopeeKey } from '../lib/shopee'
 import { formatTanggalIndo } from '../lib/format'
 import type { Item } from '../lib/types'
 import CopyButton from '../components/CopyButton'
@@ -30,9 +30,45 @@ function ProductNumber({ value, onSave }: { value: number; onSave: (n: number) =
         if (Number.isFinite(n) && n >= 1 && n !== value) onSave(n)
         else setV(String(value))
       }}
-      title="Klik untuk ubah nomor katalog"
+      title="Ubah nomor katalog"
       className="h-9 w-12 shrink-0 rounded-lg bg-brand-50 text-center text-sm font-bold text-brand-700 outline-none focus:ring-2 focus:ring-brand-300"
     />
+  )
+}
+
+// Input link dengan tombol buka (↗) bila berisi URL.
+function LinkInput({
+  value,
+  placeholder,
+  onSave,
+}: {
+  value: string
+  placeholder: string
+  onSave: (v: string) => void
+}) {
+  const [v, setV] = useState(value)
+  useEffect(() => setV(value), [value])
+  return (
+    <div className="flex gap-1">
+      <input
+        className="input"
+        value={v}
+        placeholder={placeholder}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => onSave(v)}
+      />
+      {v.trim().startsWith('http') && (
+        <a
+          href={v.trim()}
+          target="_blank"
+          rel="noreferrer"
+          className="btn-secondary shrink-0 px-3"
+          title="Buka link"
+        >
+          ↗
+        </a>
+      )}
+    </div>
   )
 }
 
@@ -52,13 +88,17 @@ export default function ProductsPage() {
           tanggalById[p.id] = p.tanggal
           labelById[p.id] = p.label || formatTanggalIndo(p.tanggal)
         }
-        // Hanya item yang sudah punya link affiliate.
-        const withAff = items.filter((i) => (i.affiliate_link ?? '').trim())
-        // Kelompokkan per produk (key shop/item; fallback ke link kalau tak bisa diparse).
+        // Item yang punya link sumber ATAU affiliate (sudah jadi "produk").
+        const relevant = items.filter(
+          (i) => (i.source_link ?? '').trim() || (i.affiliate_link ?? '').trim(),
+        )
         const groups = new Map<string, Item[]>()
-        for (const it of withAff) {
+        for (const it of relevant) {
           const key =
-            parseShopeeKey(it.source_link) || (it.source_link ?? '').trim() || it.affiliate_link || it.id
+            parseShopeeKey(it.source_link) ||
+            (it.source_link ?? '').trim() ||
+            (it.affiliate_link ?? '').trim() ||
+            it.id
           const arr = groups.get(key) ?? []
           arr.push(it)
           groups.set(key, arr)
@@ -66,7 +106,6 @@ export default function ProductsPage() {
         const list: Product[] = [...groups.entries()].map(([key, its]) => {
           const sorted = its.slice().sort((a, b) => a.created_at.localeCompare(b.created_at))
           const rep = sorted[0]
-          // Postingan terakhir memakai produk ini.
           let lastId = its[0].posting_id
           for (const it of its) {
             if ((tanggalById[it.posting_id] ?? '') > (tanggalById[lastId] ?? '')) lastId = it.posting_id
@@ -103,25 +142,33 @@ export default function ProductsPage() {
     )
   }, [products, query])
 
-  // Ubah nomor katalog: update SEMUA item produk ini (di semua postingan) agar konsisten.
-  async function saveNumber(prod: Product, n: number) {
+  // Update field (nomor/link) untuk SEMUA item produk ini agar konsisten di semua postingan.
+  async function updateGroup(prod: Product, patch: Partial<Item>) {
     try {
-      await Promise.all(prod.items.map((it) => updateItem(it.id, { my_number: n })))
+      await Promise.all(prod.items.map((it) => updateItem(it.id, patch)))
       setProducts((prev) =>
         prev.map((p) =>
           p.key === prod.key
             ? {
                 ...p,
-                rep: { ...p.rep, my_number: n },
-                items: p.items.map((it) => ({ ...it, my_number: n })),
+                rep: { ...p.rep, ...patch },
+                items: p.items.map((it) => ({ ...it, ...patch })),
               }
             : p,
         ),
       )
-      toast(`Nomor diubah ke ${n} (${prod.count} item)`)
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Gagal ubah nomor', 'err')
+      toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'err')
     }
+  }
+
+  function saveNumber(prod: Product, n: number) {
+    updateGroup(prod, { my_number: n }).then(() => toast(`Nomor diubah ke ${n} (${prod.count} item)`))
+  }
+  function saveLink(prod: Product, field: 'source_link' | 'affiliate_link', value: string) {
+    const v = value.trim() || null
+    if (v === ((prod.rep[field] as string | null) ?? null)) return
+    updateGroup(prod, { [field]: v }).then(() => toast('Link disimpan'))
   }
 
   return (
@@ -131,22 +178,22 @@ export default function ProductsPage() {
         <span className="text-sm text-gray-400">{products.length} produk</span>
       </div>
       <p className="mb-3 text-sm text-gray-500">
-        Semua produk yang sudah punya link affiliate (digabung per produk). Untuk cari nomor &amp;
-        link affiliate yang sudah ada.
+        Semua produk (digabung per produk). Bisa edit nomor, link sumber, &amp; link affiliate di sini
+        — mis. saat produk habis dan linknya perlu diganti.
       </p>
 
       <input
         className="input mb-4"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Cari: nomor, kategori, kode ref, link…"
+        placeholder="Cari: nomor, kategori, link…"
       />
 
       {loading ? (
         <p className="py-12 text-center text-gray-400">Memuat…</p>
       ) : products.length === 0 ? (
         <div className="card text-center text-gray-500">
-          <p className="text-sm">Belum ada produk dengan link affiliate.</p>
+          <p className="text-sm">Belum ada produk.</p>
         </div>
       ) : visible.length === 0 ? (
         <div className="card text-center text-gray-500">
@@ -155,48 +202,56 @@ export default function ProductsPage() {
       ) : (
         <div className="space-y-2">
           {visible.map((p) => {
-            const sourceClean = canonicalShopeeUrl(p.rep.source_link) ?? (p.rep.source_link ?? '')
-            const aff = p.rep.affiliate_link ?? ''
+            const hasAff = (p.rep.affiliate_link ?? '').trim().length > 0
             return (
-              <div key={p.key} className="card flex items-start gap-3 p-3">
-                <ProductNumber value={p.rep.my_number} onSave={(n) => saveNumber(p, n)} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-gray-900">{p.rep.kategori || 'item'}</span>
-                    {p.rep.ref_code && (
-                      <span className="text-xs text-gray-400">{p.rep.ref_code}</span>
-                    )}
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                      dipakai {p.count}×
-                    </span>
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-gray-400">
-                    {p.lastLabel ? `Terakhir: ${p.lastLabel}` : ''}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-3 text-xs">
-                    {sourceClean && (
-                      <a
-                        href={sourceClean}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium text-sec-700 hover:underline"
-                      >
-                        Link sumber ↗
-                      </a>
-                    )}
-                    {aff && (
-                      <a
-                        href={aff}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="font-medium text-sec-700 hover:underline"
-                      >
-                        Link affiliate ↗
-                      </a>
+              <div key={p.key} className="card space-y-2 p-3">
+                <div className="flex items-center gap-3">
+                  <ProductNumber value={p.rep.my_number} onSave={(n) => saveNumber(p, n)} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-gray-900">{p.rep.kategori || 'item'}</span>
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+                        dipakai {p.count}×
+                      </span>
+                      {!hasAff && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                          Belum affiliate
+                        </span>
+                      )}
+                    </div>
+                    {p.lastLabel && (
+                      <p className="mt-0.5 truncate text-xs text-gray-400">Terakhir: {p.lastLabel}</p>
                     )}
                   </div>
                 </div>
-                <CopyButton text={aff} label="Copy aff" className="btn-secondary shrink-0 text-xs" disabled={!aff} />
+
+                <div>
+                  <label className="label">Link sumber (Shopee)</label>
+                  <LinkInput
+                    value={p.rep.source_link ?? ''}
+                    placeholder="https://shopee.co.id/product/..."
+                    onSave={(v) => saveLink(p, 'source_link', v)}
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Link affiliate</label>
+                  <div className="flex gap-1">
+                    <div className="min-w-0 flex-1">
+                      <LinkInput
+                        value={p.rep.affiliate_link ?? ''}
+                        placeholder="https://s.shopee.co.id/..."
+                        onSave={(v) => saveLink(p, 'affiliate_link', v)}
+                      />
+                    </div>
+                    <CopyButton
+                      text={p.rep.affiliate_link ?? ''}
+                      label="Copy"
+                      className="btn-secondary shrink-0 text-xs"
+                      disabled={!hasAff}
+                    />
+                  </div>
+                </div>
               </div>
             )
           })}
