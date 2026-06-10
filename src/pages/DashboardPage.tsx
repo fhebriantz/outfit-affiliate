@@ -16,6 +16,7 @@ import {
   updatePosting,
 } from '../lib/db'
 import { imagePublicUrl, listAllImages } from '../lib/images'
+import { DEFAULT_TITLE } from '../lib/types'
 import type { Item, Posting, PostingImage, PostingStatus } from '../lib/types'
 import {
   computePostingStage,
@@ -97,6 +98,7 @@ export default function DashboardPage() {
       const p = await createPosting(user.id, {
         tanggal: todayISO(),
         label: padFolderLabel(await reserveFolderNumber(user.id)),
+        catatan: DEFAULT_TITLE,
         status: 'draft',
       })
       navigate(`/posting/${p.id}`)
@@ -115,6 +117,7 @@ export default function DashboardPage() {
         label: padFolderLabel(await reserveFolderNumber(user.id)),
         ref_nama: p.ref_nama,
         caption_hashtags: p.caption_hashtags,
+        catatan: p.catatan ?? DEFAULT_TITLE,
         status: 'draft',
       })
       // Salin struktur kategori saja (tanpa link), nomor LANJUT otomatis dari counter.

@@ -48,3 +48,4 @@ export interface Settings {
 
 export const DEFAULT_HASHTAGS = '#recomendationoutfithijab #hijaboutfit #hijabootd'
 export const DEFAULT_KATEGORI = ['blouse', 'rok', 'sepatu', 'outer', 'celana', 'dress', 'kerudung', 'tas']
+export const DEFAULT_TITLE = '( SPILL OUTFIT DI CAPTION 👇 )'

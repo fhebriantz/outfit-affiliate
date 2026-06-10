@@ -70,20 +70,28 @@ export function buildSourceBulk(items: Item[], opts: { onlyPending?: boolean } =
     .join('\n')
 }
 
+/** Blok info cara order yang dipasang sebelum hashtag. */
+export const ORDER_INFO = `Cara order
+1. Klik link di bio profil aku
+2. Cari nomor produk sesuai yang aku tulis di atas
+3. Klik produknya aja nanti kalian akan di arahin ke halaman checkout`
+
 /**
  * Susun caption TikTok sesuai template:
  *   {title}                 <- baris pembuka (opsional, dari field Title)
- *   Outfit yang aku pake
+ *   Detail outfit :
  *   -blouse : no 1
  *   -rok : no 2
  *   ...
+ *   Cara order
+ *   1. ... 2. ... 3. ...
  *   #hashtag ...
  */
 export function buildCaption(
   items: Item[],
   hashtags: string,
   title = '',
-  intro = 'Outfit yang aku pake',
+  intro = 'Detail outfit :',
 ): string {
   const baris = items
     .slice()
@@ -95,6 +103,7 @@ export function buildCaption(
   const parts: string[] = []
   if (title && title.trim()) parts.push(title.trim())
   parts.push(intro, ...baris)
+  parts.push(ORDER_INFO)
   if (hashtags && hashtags.trim()) parts.push(hashtags.trim())
   return parts.join('\n')
 }
