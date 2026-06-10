@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 import { deleteImage, imagePublicUrl, listImages, uploadScreenshot } from '../lib/images'
 import type { PostingImage } from '../lib/types'
@@ -31,24 +31,49 @@ export default function ImageGallery({ postingId, userId, onCountChange }: Props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [images.length])
 
-  async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return
-    setUploading(true)
-    const arr = Array.from(files)
-    let ok = 0
-    for (const f of arr) {
-      try {
-        const img = await uploadScreenshot(userId, postingId, f)
-        setImages((prev) => [...prev, img])
-        ok++
-      } catch (e) {
-        toast(e instanceof Error ? e.message : `Gagal upload ${f.name}`, 'err')
+  const uploadFiles = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return
+      setUploading(true)
+      let ok = 0
+      for (const f of files) {
+        try {
+          const img = await uploadScreenshot(userId, postingId, f)
+          setImages((prev) => [...prev, img])
+          ok++
+        } catch (e) {
+          toast(e instanceof Error ? e.message : `Gagal upload ${f.name || 'gambar'}`, 'err')
+        }
+      }
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+      if (ok > 0) toast(`${ok} gambar terupload`)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [userId, postingId],
+  )
+
+  // Tempel langsung hasil screenshot (Ctrl+V) -> otomatis upload.
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items
+      if (!items) return
+      const files: File[] = []
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i]
+        if (it.type.startsWith('image/')) {
+          const f = it.getAsFile()
+          if (f) files.push(f)
+        }
+      }
+      if (files.length) {
+        e.preventDefault()
+        uploadFiles(files)
       }
     }
-    setUploading(false)
-    if (inputRef.current) inputRef.current.value = ''
-    if (ok > 0) toast(`${ok} gambar terupload`)
-  }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [uploadFiles])
 
   async function handleDelete(img: PostingImage) {
     if (!confirm('Hapus gambar ini?')) return
@@ -66,8 +91,8 @@ export default function ImageGallery({ postingId, userId, onCountChange }: Props
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs text-gray-500">
-          Upload screenshot referensi (boleh banyak sekaligus, mis. tiap varian warna). Gambar
-          otomatis dikompres.
+          Upload screenshot referensi (boleh banyak). Atau langsung <strong>tempel (Ctrl+V)</strong>{' '}
+          hasil screenshot tanpa simpan dulu. Gambar otomatis dikompres.
         </p>
       </div>
 
@@ -77,7 +102,7 @@ export default function ImageGallery({ postingId, userId, onCountChange }: Props
         accept="image/*"
         multiple
         className="hidden"
-        onChange={(e) => handleFiles(e.target.files)}
+        onChange={(e) => uploadFiles(Array.from(e.target.files ?? []))}
       />
       <button
         type="button"
