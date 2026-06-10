@@ -198,11 +198,13 @@ export default function PostingEditorPage() {
       for (const link of links) {
         let myNumber: number
         let affiliate: string | null = null
+        let kategori = ''
         const key = parseShopeeKey(link)
         const ex = key ? findExistingByKey(pool, key, '') : null
         if (ex) {
           myNumber = ex.my_number
           affiliate = (ex.affiliate_link ?? '').trim() ? ex.affiliate_link : null
+          kategori = ex.kategori ?? '' // autofill kategori dari produk yang sudah ada
           reusedCount++
         } else {
           // Produk baru -> pesan 1 nomor dari counter (tidak terpengaruh penghapusan).
@@ -212,7 +214,7 @@ export default function PostingEditorPage() {
           posting_id: posting.id,
           urutan,
           my_number: myNumber,
-          kategori: '',
+          kategori,
           source_link: link,
           affiliate_link: affiliate,
         })
@@ -283,6 +285,13 @@ export default function PostingEditorPage() {
         const existing = findExistingByKey(dedupPool, key, itemId)
         if (existing) {
           const current = items.find((i) => i.id === itemId)
+          // Autofill kategori dari produk yang sudah ada kalau item ini masih kosong.
+          if (!(current?.kategori ?? '').trim() && (existing.kategori ?? '').trim()) {
+            setItems((prev) =>
+              prev.map((it) => (it.id === itemId ? { ...it, kategori: existing.kategori } : it)),
+            )
+            updateItem(itemId, { kategori: existing.kategori }).catch(() => {})
+          }
           const numberDiffers = existing.my_number !== current?.my_number
           const existingAff = (existing.affiliate_link ?? '').trim()
           const affDiffers = Boolean(existingAff) && existingAff !== (current?.affiliate_link ?? '')
@@ -311,6 +320,7 @@ export default function PostingEditorPage() {
     if (!dup) return
     const patch: Partial<Item> = { my_number: dup.existing.my_number }
     if ((dup.existing.affiliate_link ?? '').trim()) patch.affiliate_link = dup.existing.affiliate_link
+    if ((dup.existing.kategori ?? '').trim()) patch.kategori = dup.existing.kategori
     saveItem(dup.itemId, patch)
     toast(`Pakai ulang nomor ${dup.existing.my_number}`)
     setDup(null)
