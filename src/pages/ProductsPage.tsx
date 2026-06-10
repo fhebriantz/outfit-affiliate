@@ -133,8 +133,13 @@ export default function ProductsPage() {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return products
+    // Angka murni -> cocokkan PERSIS ke nomor katalog (bukan substring di link).
+    if (/^\d+$/.test(q)) {
+      return products.filter((p) => p.rep.my_number === Number(q))
+    }
+    // Teks -> cari di kategori, link, & label.
     return products.filter((p) =>
-      [p.rep.kategori, p.rep.source_link, p.rep.affiliate_link, p.rep.ref_code, String(p.rep.my_number), p.lastLabel]
+      [p.rep.kategori, p.rep.source_link, p.rep.affiliate_link, p.lastLabel]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -186,7 +191,7 @@ export default function ProductsPage() {
         className="input mb-4"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Cari: nomor, kategori, link…"
+        placeholder="Cari nomor (persis) atau kategori/link…"
       />
 
       {loading ? (
