@@ -175,6 +175,11 @@ export default function ProductsPage() {
     if (v === ((prod.rep[field] as string | null) ?? null)) return
     updateGroup(prod, { [field]: v }).then(() => toast('Link disimpan'))
   }
+  function saveKategori(prod: Product, value: string) {
+    const v = value.trim() || null
+    if (v === (prod.rep.kategori ?? null)) return
+    updateGroup(prod, { kategori: v }).then(() => toast(`Kategori diubah (${prod.count} item)`))
+  }
 
   return (
     <div>
@@ -214,7 +219,6 @@ export default function ProductsPage() {
                   <ProductNumber value={p.rep.my_number} onSave={(n) => saveNumber(p, n)} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-gray-900">{p.rep.kategori || 'item'}</span>
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
                         dipakai {p.count}×
                       </span>
@@ -228,6 +232,15 @@ export default function ProductsPage() {
                       <p className="mt-0.5 truncate text-xs text-gray-400">Terakhir: {p.lastLabel}</p>
                     )}
                   </div>
+                </div>
+
+                <div>
+                  <label className="label">Kategori</label>
+                  <LinkInput
+                    value={p.rep.kategori ?? ''}
+                    placeholder="blouse / rok / sepatu"
+                    onSave={(v) => saveKategori(p, v)}
+                  />
                 </div>
 
                 <div>
