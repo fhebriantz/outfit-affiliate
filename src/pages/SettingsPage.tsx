@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { getSettings, listAllItems, listPostings, saveSettings } from '../lib/db'
 import { listAllImages } from '../lib/images'
+import { formatItemCode, parseItemCode } from '../lib/format'
 
 export default function SettingsPage() {
   const { user } = useAuth()
@@ -23,7 +24,7 @@ export default function SettingsPage() {
       .then((s) => {
         setHashtags(s.default_hashtags)
         setKategori(s.kategori_presets.join(', '))
-        setNextStart(String((s.last_number ?? 0) + 1))
+        setNextStart(formatItemCode((s.last_number ?? 0) + 1))
         setNextFolder(String((s.last_folder ?? 0) + 1))
       })
       .catch((e) => toast(e instanceof Error ? e.message : 'Gagal memuat pengaturan', 'err'))
@@ -53,16 +54,16 @@ export default function SettingsPage() {
 
   async function saveNextStart() {
     if (!user) return
-    const n = Number(nextStart)
-    if (!Number.isFinite(n) || n < 1) {
-      toast('Masukkan angka >= 1', 'err')
+    const n = parseItemCode(nextStart)
+    if (n == null) {
+      toast('Format kode salah (contoh: A 100)', 'err')
       return
     }
     setSavingNum(true)
     try {
       // Item berikutnya = last_number + 1, jadi simpan last_number = n - 1.
-      await saveSettings(user.id, { last_number: Math.floor(n) - 1 })
-      toast(`Item berikutnya akan mulai dari nomor ${Math.floor(n)}`)
+      await saveSettings(user.id, { last_number: n - 1 })
+      toast(`Item berikutnya akan mulai dari kode ${formatItemCode(n)}`)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'err')
     } finally {
@@ -161,13 +162,12 @@ export default function SettingsPage() {
           </p>
         </div>
         <div>
-          <label className="label">Item berikutnya mulai dari nomor</label>
+          <label className="label">Item berikutnya mulai dari kode</label>
           <div className="flex gap-2">
             <input
-              type="number"
-              min={1}
               className="input w-40"
               value={nextStart}
+              placeholder="A 100"
               onChange={(e) => setNextStart(e.target.value)}
             />
             <button onClick={saveNextStart} disabled={savingNum} className="btn-secondary">
@@ -175,8 +175,8 @@ export default function SettingsPage() {
             </button>
           </div>
           <p className="mt-1 text-xs text-gray-400">
-            Catatan: demi keamanan, kalau masih ada item dengan nomor lebih tinggi, sistem otomatis
-            melanjutkan dari nomor tertinggi itu (mencegah nomor bentrok).
+            Format kode: huruf + 3 digit (A 100 … A 999, lalu B 100 …). Demi keamanan, kalau masih ada
+            item dengan kode lebih tinggi, sistem otomatis melanjutkan dari yang tertinggi.
           </p>
         </div>
 

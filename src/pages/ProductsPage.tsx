@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 import { listAllItems, listPostings, updateItem } from '../lib/db'
 import { parseShopeeKey } from '../lib/shopee'
-import { formatTanggalIndo } from '../lib/format'
+import { formatItemCode, formatTanggalIndo, parseItemCode } from '../lib/format'
 import type { Item } from '../lib/types'
 import CopyButton from '../components/CopyButton'
 
@@ -15,23 +15,21 @@ interface Product {
   lastTanggal: string
 }
 
-// Input nomor katalog yang bisa diedit; simpan saat blur.
+// Input kode katalog (mis. "A 100") yang bisa diedit; simpan saat blur.
 function ProductNumber({ value, onSave }: { value: number; onSave: (n: number) => void }) {
-  const [v, setV] = useState(String(value))
-  useEffect(() => setV(String(value)), [value])
+  const [v, setV] = useState(formatItemCode(value))
+  useEffect(() => setV(formatItemCode(value)), [value])
   return (
     <input
-      type="number"
-      inputMode="numeric"
       value={v}
       onChange={(e) => setV(e.target.value)}
       onBlur={() => {
-        const n = Math.floor(Number(v))
-        if (Number.isFinite(n) && n >= 1 && n !== value) onSave(n)
-        else setV(String(value))
+        const n = parseItemCode(v)
+        if (n != null && n !== value) onSave(n)
+        else setV(formatItemCode(value))
       }}
-      title="Ubah nomor katalog"
-      className="h-9 w-12 shrink-0 rounded-lg bg-brand-50 text-center text-sm font-bold text-brand-700 outline-none focus:ring-2 focus:ring-brand-300"
+      title="Ubah kode katalog (mis. A 100)"
+      className="h-9 w-16 shrink-0 rounded-lg bg-brand-50 text-center text-sm font-bold text-brand-700 outline-none focus:ring-2 focus:ring-brand-300"
     />
   )
 }
@@ -133,13 +131,12 @@ export default function ProductsPage() {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return products
-    // Angka murni -> cocokkan PERSIS ke nomor katalog (bukan substring di link).
-    if (/^\d+$/.test(q)) {
-      return products.filter((p) => p.rep.my_number === Number(q))
-    }
-    // Teks -> cari di kategori, link, & label.
+    // Kode lengkap (mis. "A 100") -> cocok PERSIS.
+    const asCode = parseItemCode(q)
+    if (asCode != null) return products.filter((p) => p.rep.my_number === asCode)
+    // Lainnya -> cari di kode, kategori, link, & label.
     return products.filter((p) =>
-      [p.rep.kategori, p.rep.source_link, p.rep.affiliate_link, p.lastLabel]
+      [formatItemCode(p.rep.my_number), p.rep.kategori, p.rep.source_link, p.rep.affiliate_link, p.lastLabel]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -168,7 +165,9 @@ export default function ProductsPage() {
   }
 
   function saveNumber(prod: Product, n: number) {
-    updateGroup(prod, { my_number: n }).then(() => toast(`Nomor diubah ke ${n} (${prod.count} item)`))
+    updateGroup(prod, { my_number: n }).then(() =>
+      toast(`Kode diubah ke ${formatItemCode(n)} (${prod.count} item)`),
+    )
   }
   function saveLink(prod: Product, field: 'source_link' | 'affiliate_link', value: string) {
     const v = value.trim() || null
@@ -196,7 +195,7 @@ export default function ProductsPage() {
         className="input mb-4"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Cari nomor (persis) atau kategori/link…"
+        placeholder="Cari kode (mis. A 100) atau kategori/link…"
       />
 
       {loading ? (

@@ -32,6 +32,29 @@ export function padFolderLabel(n: number): string {
   return String(n).padStart(3, '0')
 }
 
+// Kode katalog item: "A 100".."A 999", lalu "B 100".."B 999", dst (900 per huruf).
+const CODE_PER_LETTER = 900
+const CODE_MIN = 100
+
+/** Ubah counter integer (1, 2, …) jadi kode katalog "A 100", "A 101", …, "B 100", … */
+export function formatItemCode(n: number): string {
+  if (!Number.isFinite(n) || n < 1) return String(n)
+  const idx = Math.floor(n) - 1
+  const letter = String.fromCharCode(65 + Math.floor(idx / CODE_PER_LETTER))
+  const num = CODE_MIN + (idx % CODE_PER_LETTER)
+  return `${letter} ${num}`
+}
+
+/** Ubah kode katalog "A 100" balik jadi counter integer. null kalau format salah. */
+export function parseItemCode(s: string | null | undefined): number | null {
+  const m = (s ?? '').trim().toUpperCase().match(/^([A-Z])\s*(\d{3})$/)
+  if (!m) return null
+  const letter = m[1].charCodeAt(0) - 65
+  const num = Number(m[2])
+  if (num < CODE_MIN || num > 999) return null
+  return letter * CODE_PER_LETTER + (num - CODE_MIN) + 1
+}
+
 /** Tanggal hari ini dalam format "YYYY-MM-DD" (zona waktu lokal). */
 export function todayISO(): string {
   const now = new Date()
@@ -98,7 +121,7 @@ export function buildCaption(
     .sort((a, b) => a.urutan - b.urutan)
     .map((it) => {
       const kat = (it.kategori ?? 'item').trim() || 'item'
-      return `-${kat} : no ${it.my_number}`
+      return `-${kat} : no ${formatItemCode(it.my_number)}`
     })
   // Tiap section dipisah 1 baris kosong (join '\n\n'); di dalam section tetap '\n'.
   const sections: string[] = []

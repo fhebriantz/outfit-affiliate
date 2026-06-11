@@ -21,6 +21,7 @@ import type { Item, Posting, PostingImage, PostingStatus } from '../lib/types'
 import {
   computePostingStage,
   computeSyncChecks,
+  formatItemCode,
   formatTanggalIndo,
   incompleteReasons,
   isPostingSynced,
@@ -217,7 +218,7 @@ export default function DashboardPage() {
           it.ref_code,
           it.source_link,
           it.affiliate_link,
-          String(it.my_number),
+          formatItemCode(it.my_number),
         ]),
       ]
         .filter(Boolean)

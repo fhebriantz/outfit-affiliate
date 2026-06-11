@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Item } from '../lib/types'
+import { formatItemCode, parseItemCode } from '../lib/format'
 
 interface Props {
   item: Item
@@ -46,9 +47,14 @@ export default function ItemRow({
     })
   }, [item.my_number, item.kategori, item.ref_code, item.source_link, item.affiliate_link])
 
+  // Kode katalog (mis. "A 100") yang ditampilkan & diedit di kolom No.
+  const [codeDraft, setCodeDraft] = useState(formatItemCode(item.my_number))
+  useEffect(() => setCodeDraft(formatItemCode(item.my_number)), [item.my_number])
+
   function saveNumber() {
-    const n = Number(draft.my_number)
-    if (Number.isFinite(n) && n !== item.my_number) onSave({ my_number: n })
+    const n = parseItemCode(codeDraft)
+    if (n != null && n !== item.my_number) onSave({ my_number: n })
+    else setCodeDraft(formatItemCode(item.my_number))
   }
   function saveField(field: keyof typeof draft, value: string) {
     const current = (item[field] as string | null) ?? ''
@@ -59,13 +65,12 @@ export default function ItemRow({
     <div className="rounded-xl border border-gray-200 bg-white p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="label !mb-0">No</span>
+          <span className="label !mb-0">Kode</span>
           <input
-            type="number"
-            inputMode="numeric"
             className="input w-20 text-center font-semibold"
-            value={draft.my_number}
-            onChange={(e) => setDraft((d) => ({ ...d, my_number: Number(e.target.value) }))}
+            value={codeDraft}
+            placeholder="A 100"
+            onChange={(e) => setCodeDraft(e.target.value)}
             onBlur={saveNumber}
           />
           <select
@@ -153,8 +158,8 @@ export default function ItemRow({
               }
             >
               {dup.consistent
-                ? `♻ Produk sama dengan no ${dup.number} — sudah dipakai ulang`
-                : `⚠ Produk sama dengan no ${dup.number} (${dup.label}) — sebaiknya pakai ulang`}
+                ? `♻ Produk sama dengan ${formatItemCode(dup.number)} — sudah dipakai ulang`
+                : `⚠ Produk sama dengan ${formatItemCode(dup.number)} (${dup.label}) — sebaiknya pakai ulang`}
             </p>
           )}
         </div>

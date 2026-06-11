@@ -21,6 +21,7 @@ import {
   buildSourceBulk,
   computePostingStage,
   computeSyncChecks,
+  formatItemCode,
   formatTanggalIndo,
   isPostingSynced,
   parseBulkLinks,
@@ -322,7 +323,7 @@ export default function PostingEditorPage() {
     if ((dup.existing.affiliate_link ?? '').trim()) patch.affiliate_link = dup.existing.affiliate_link
     if ((dup.existing.kategori ?? '').trim()) patch.kategori = dup.existing.kategori
     saveItem(dup.itemId, patch)
-    toast(`Pakai ulang nomor ${dup.existing.my_number}`)
+    toast(`Pakai ulang ${formatItemCode(dup.existing.my_number)}`)
     setDup(null)
   }
 
@@ -631,7 +632,7 @@ export default function PostingEditorPage() {
                   <li key={i} className="flex items-center gap-2 text-xs">
                     <span className={ok ? 'text-green-600' : 'text-amber-500'}>{ok ? '→' : '⚠'}</span>
                     <span className="w-24 shrink-0 text-gray-600">
-                      {m.item ? `no ${m.item.my_number} (${m.item.kategori || 'item'})` : '(tak ada item)'}
+                      {m.item ? `${formatItemCode(m.item.my_number)} (${m.item.kategori || 'item'})` : '(tak ada item)'}
                     </span>
                     <span className="flex-1 truncate text-gray-400">{m.link ?? '(kurang link)'}</span>
                   </li>
@@ -692,7 +693,7 @@ export default function PostingEditorPage() {
             <p className="mt-2 text-sm text-gray-600">
               Link produk yang sama sudah ada di{' '}
               <span className="font-semibold">{postingLabels[dup.existing.posting_id] ?? 'postingan lain'}</span>{' '}
-              dengan <span className="font-semibold">nomor {dup.existing.my_number}</span>
+              dengan <span className="font-semibold">kode {formatItemCode(dup.existing.my_number)}</span>
               {dup.existing.kategori ? ` (${dup.existing.kategori})` : ''}.
             </p>
             {(dup.existing.affiliate_link ?? '').trim() && (
@@ -705,7 +706,7 @@ export default function PostingEditorPage() {
             </p>
             <div className="mt-4 flex gap-2">
               <button onClick={reuseExisting} className="btn-primary flex-1">
-                Pakai ulang no {dup.existing.my_number}
+                Pakai ulang {formatItemCode(dup.existing.my_number)}
               </button>
               <button onClick={() => setDup(null)} className="btn-secondary flex-1">
                 Tetap buat baru
