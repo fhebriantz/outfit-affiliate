@@ -180,6 +180,8 @@ export default function CollagePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const labelRects = useRef<Record<string, { x: number; y: number; w: number; h: number }>>({})
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const lastTap = useRef<{ id: string; t: number } | null>(null)
   const idRef = useRef(1)
   const drag = useRef<{ mode: 'cell' | 'label'; id?: string; x: number; y: number } | null>(null)
   const nid = () => String(idRef.current++)
@@ -304,6 +306,7 @@ export default function CollagePage() {
       ],
     }))
     setActiveLabel(id)
+    setTimeout(() => textareaRef.current?.focus(), 50)
   }
   function updateLabel(patch: Partial<Label>) {
     if (!activeLabel) return
@@ -327,13 +330,23 @@ export default function CollagePage() {
     const pt = canvasPoint(e)
     ;(e.target as Element).setPointerCapture?.(e.pointerId)
     for (let i = slide.labels.length - 1; i >= 0; i--) {
-      const r = labelRects.current[slide.labels[i].id]
+      const lab = slide.labels[i]
+      const r = labelRects.current[lab.id]
       if (r && pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h) {
-        setActiveLabel(slide.labels[i].id)
-        drag.current = { mode: 'label', id: slide.labels[i].id, x: pt.x, y: pt.y }
+        // Double-tap pada teks yang sama -> buka keyboard (fokus field). Tap tunggal = pilih + geser.
+        const isDouble = lastTap.current?.id === lab.id && e.timeStamp - lastTap.current.t < 350
+        lastTap.current = { id: lab.id, t: e.timeStamp }
+        setActiveLabel(lab.id)
+        if (isDouble) {
+          drag.current = null
+          setTimeout(() => textareaRef.current?.focus(), 0)
+        } else {
+          drag.current = { mode: 'label', id: lab.id, x: pt.x, y: pt.y }
+        }
         return
       }
     }
+    lastTap.current = null
     setActiveLabel(null)
     const idx = layout.cells.findIndex((c) => {
       const px = cellPx(c, OUT_W, OUT_H, slide.showGap ? GAP_ON : 0)
@@ -559,6 +572,7 @@ export default function CollagePage() {
         {activeLabelObj ? (
           <div className="space-y-3">
             <textarea
+              ref={textareaRef}
               className="input min-h-[60px]"
               value={activeLabelObj.text}
               onChange={(e) => updateLabel({ text: e.target.value })}
