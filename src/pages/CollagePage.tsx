@@ -164,16 +164,24 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
     const lineH = l.size * 1.2
     let maxW = 0
     lines.forEach((ln) => (maxW = Math.max(maxW, ctx.measureText(ln).width)))
-    // Selalu catat kotak hit-test (walau label disembunyikan karena jadi overlay).
-    if (opts.rectsOut) {
-      opts.rectsOut[l.id] = {
-        x: px - 8,
-        y: py - l.size / 2 - 6,
-        w: Math.max(maxW, 24) + 16,
-        h: lineH * lines.length + 12,
-      }
+    const rect = {
+      x: px - 8,
+      y: py - l.size / 2 - 6,
+      w: Math.max(maxW, 24) + 16,
+      h: lineH * lines.length + 12,
     }
-    if (l.id === opts.hideLabelId) continue // jangan gambar (dirender sebagai overlay teks)
+    // Selalu catat kotak hit-test (walau label disembunyikan karena jadi overlay).
+    if (opts.rectsOut) opts.rectsOut[l.id] = rect
+    // Garis fokus saat label dipilih (digambar walau teks disembunyikan).
+    if (opts.showSel && l.id === opts.activeLabel) {
+      ctx.save()
+      ctx.strokeStyle = '#ee4d2d'
+      ctx.lineWidth = 3
+      ctx.setLineDash([8, 6])
+      ctx.strokeRect(rect.x, rect.y, rect.w, rect.h)
+      ctx.restore()
+    }
+    if (l.id === opts.hideLabelId) continue // jangan gambar teksnya (dirender sebagai overlay)
     ctx.lineWidth = Math.max(3, l.size * 0.14)
     ctx.lineJoin = 'round'
     ctx.strokeStyle = l.color === 'white' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)'
@@ -183,15 +191,6 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
       ctx.strokeText(ln, px, ly)
       ctx.fillText(ln, px, ly)
     })
-    if (opts.showSel && l.id === opts.activeLabel) {
-      const px0 = px - 8
-      const py0 = py - l.size / 2 - 6
-      ctx.strokeStyle = '#ee4d2d'
-      ctx.lineWidth = 3
-      ctx.setLineDash([8, 6])
-      ctx.strokeRect(px0, py0, Math.max(maxW, 24) + 16, lineH * lines.length + 12)
-      ctx.setLineDash([])
-    }
   }
 }
 
