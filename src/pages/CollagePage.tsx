@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 
-const GAP = 10 // jarak antar sel (px di canvas)
+const GAP_ON = 14 // lebar jarak antar sel saat gap diaktifkan (px di canvas)
 
 type Ratio = { key: string; label: string; w: number; h: number }
 const RATIOS: Ratio[] = [
@@ -103,7 +103,8 @@ export default function CollagePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [ratioKey, setRatioKey] = useState('3:4')
-  const [layoutKey, setLayoutKey] = useState('rows3')
+  const [layoutKey, setLayoutKey] = useState('cols3')
+  const [showGap, setShowGap] = useState(false)
   const [slots, setSlots] = useState<Slot[]>([emptySlot(), emptySlot(), emptySlot()])
   const [selected, setSelected] = useState(0)
   const drag = useRef<{ active: boolean; x: number; y: number } | null>(null)
@@ -112,6 +113,7 @@ export default function CollagePage() {
   const layout = LAYOUTS.find((l) => l.key === layoutKey) ?? LAYOUTS[0]
   const OUT_W = ratio.w
   const OUT_H = ratio.h
+  const GAP = showGap ? GAP_ON : 0
 
   // Samakan jumlah slot dengan jumlah sel di layout.
   useEffect(() => {
@@ -178,7 +180,7 @@ export default function CollagePage() {
   useEffect(() => {
     draw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slots, layoutKey, ratioKey, selected])
+  }, [slots, layoutKey, ratioKey, selected, showGap])
 
   function canvasPoint(e: React.PointerEvent) {
     const canvas = canvasRef.current!
@@ -304,6 +306,11 @@ export default function CollagePage() {
           ))}
         </div>
       </div>
+
+      <label className="flex items-center gap-2 text-sm text-gray-600">
+        <input type="checkbox" checked={showGap} onChange={(e) => setShowGap(e.target.checked)} />
+        Garis pemisah (jarak putih antar gambar)
+      </label>
 
       <canvas
         ref={canvasRef}
