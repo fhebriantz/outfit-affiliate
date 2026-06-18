@@ -550,13 +550,13 @@ export default function CollagePage() {
     a.click()
     a.remove()
   }
-  async function downloadCurrent() {
-    await exportCanvas(slide, `slide-${current + 1}.jpg`)
+  function downloadCurrent() {
+    exportCanvas(slide, `slide-${current + 1}.jpg`)
     toast('Slide diunduh')
   }
   async function downloadAll() {
     for (let i = 0; i < slides.length; i++) {
-      await exportCanvas(slides[i], `slide-${i + 1}.jpg`)
+      exportCanvas(slides[i], `slide-${i + 1}.jpg`)
       await new Promise((r) => setTimeout(r, 350)) // jeda agar browser tidak blokir multi-unduh
     }
     toast(`${slides.length} slide diunduh`)
