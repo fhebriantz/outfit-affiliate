@@ -155,7 +155,6 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
 
   if (opts.rectsOut) for (const k of Object.keys(opts.rectsOut)) delete opts.rectsOut[k]
   for (const l of slide.labels) {
-    if (l.id === opts.hideLabelId) continue
     const px = l.x * W
     const py = l.y * H
     ctx.font = `bold ${l.size}px sans-serif`
@@ -165,6 +164,16 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
     const lineH = l.size * 1.2
     let maxW = 0
     lines.forEach((ln) => (maxW = Math.max(maxW, ctx.measureText(ln).width)))
+    // Selalu catat kotak hit-test (walau label disembunyikan karena jadi overlay).
+    if (opts.rectsOut) {
+      opts.rectsOut[l.id] = {
+        x: px - 8,
+        y: py - l.size / 2 - 6,
+        w: Math.max(maxW, 24) + 16,
+        h: lineH * lines.length + 12,
+      }
+    }
+    if (l.id === opts.hideLabelId) continue // jangan gambar (dirender sebagai overlay teks)
     ctx.lineWidth = Math.max(3, l.size * 0.14)
     ctx.lineJoin = 'round'
     ctx.strokeStyle = l.color === 'white' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)'
@@ -174,14 +183,6 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
       ctx.strokeText(ln, px, ly)
       ctx.fillText(ln, px, ly)
     })
-    if (opts.rectsOut) {
-      opts.rectsOut[l.id] = {
-        x: px - 8,
-        y: py - l.size / 2 - 6,
-        w: Math.max(maxW, 24) + 16,
-        h: lineH * lines.length + 12,
-      }
-    }
     if (opts.showSel && l.id === opts.activeLabel) {
       const px0 = px - 8
       const py0 = py - l.size / 2 - 6
