@@ -96,6 +96,7 @@ type DrawOpts = {
   activeCell: number
   activeLabel: string | null
   rectsOut?: Record<string, { x: number; y: number; w: number; h: number }>
+  hideLabelId?: string | null
 }
 
 function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, ratio: Ratio, opts: DrawOpts) {
@@ -137,6 +138,7 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, ratio: Ratio, op
 
   if (opts.rectsOut) for (const k of Object.keys(opts.rectsOut)) delete opts.rectsOut[k]
   for (const l of slide.labels) {
+    if (l.id === opts.hideLabelId) continue
     const px = l.x * W
     const py = l.y * H
     ctx.font = `bold ${l.size}px sans-serif`
@@ -181,8 +183,11 @@ export default function CollagePage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const labelRects = useRef<Record<string, { x: number; y: number; w: number; h: number }>>({})
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const inlineRef = useRef<HTMLTextAreaElement>(null)
   const lastTap = useRef<{ id: string; t: number } | null>(null)
   const idRef = useRef(1)
+  const [editing, setEditing] = useState(false)
+  const [dispW, setDispW] = useState(0)
   const drag = useRef<{ mode: 'cell' | 'label'; id?: string; x: number; y: number } | null>(null)
   const nid = () => String(idRef.current++)
 
@@ -209,13 +214,34 @@ export default function CollagePage() {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    drawSlide(ctx, slide, ratio, { showSel, activeCell: selected, activeLabel, rectsOut: labelRects.current })
+    drawSlide(ctx, slide, ratio, {
+      showSel,
+      activeCell: selected,
+      activeLabel,
+      rectsOut: labelRects.current,
+      hideLabelId: editing ? activeLabel : null, // sembunyikan label saat diedit inline
+    })
   }
 
   useEffect(() => {
     draw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slides, current, ratioKey, selected, activeLabel])
+  }, [slides, current, ratioKey, selected, activeLabel, editing])
+
+  // Ukuran tampilan canvas (untuk posisikan editor teks inline).
+  useEffect(() => {
+    const el = canvasRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setDispW(el.clientWidth))
+    ro.observe(el)
+    setDispW(el.clientWidth)
+    return () => ro.disconnect()
+  }, [])
+
+  // Fokuskan editor inline saat mulai mengedit.
+  useEffect(() => {
+    if (editing) setTimeout(() => inlineRef.current?.focus(), 0)
+  }, [editing, activeLabel])
 
   // ---------- Slide ----------
   function addSlide() {
@@ -251,6 +277,7 @@ export default function CollagePage() {
     setCurrent(i)
     setSelected(0)
     setActiveLabel(null)
+    setEditing(false)
   }
   function setLayoutKey(key: string) {
     patchSlide((s) => {
@@ -306,7 +333,7 @@ export default function CollagePage() {
       ],
     }))
     setActiveLabel(id)
-    setTimeout(() => textareaRef.current?.focus(), 50)
+    setEditing(true)
   }
   function updateLabel(patch: Partial<Label>) {
     if (!activeLabel) return
@@ -316,6 +343,7 @@ export default function CollagePage() {
     if (!activeLabel) return
     patchSlide((s) => ({ ...s, labels: s.labels.filter((l) => l.id !== activeLabel) }))
     setActiveLabel(null)
+    setEditing(false)
   }
 
   // ---------- Pointer ----------
@@ -339,14 +367,16 @@ export default function CollagePage() {
         setActiveLabel(lab.id)
         if (isDouble) {
           drag.current = null
-          setTimeout(() => textareaRef.current?.focus(), 0)
+          setEditing(true) // edit langsung di gambar
         } else {
+          setEditing(false)
           drag.current = { mode: 'label', id: lab.id, x: pt.x, y: pt.y }
         }
         return
       }
     }
     lastTap.current = null
+    setEditing(false)
     setActiveLabel(null)
     const idx = layout.cells.findIndex((c) => {
       const px = cellPx(c, OUT_W, OUT_H, slide.showGap ? GAP_ON : 0)
@@ -481,16 +511,60 @@ export default function CollagePage() {
         Garis pemisah (jarak putih antar gambar)
       </label>
 
-      <canvas
-        ref={canvasRef}
-        width={OUT_W}
-        height={OUT_H}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        className="mx-auto block max-h-[55vh] max-w-full touch-none rounded-xl bg-white shadow ring-1 ring-gray-200"
-        style={{ aspectRatio: `${OUT_W} / ${OUT_H}` }}
-      />
+      <div className="relative mx-auto w-fit max-w-full">
+        <canvas
+          ref={canvasRef}
+          width={OUT_W}
+          height={OUT_H}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          className="block max-h-[55vh] max-w-full touch-none rounded-xl bg-white shadow ring-1 ring-gray-200"
+          style={{ aspectRatio: `${OUT_W} / ${OUT_H}` }}
+        />
+        {editing &&
+          activeLabelObj &&
+          dispW > 0 &&
+          (() => {
+            const dispH = (dispW * OUT_H) / OUT_W
+            const fontPx = (activeLabelObj.size * dispW) / OUT_W
+            const leftPx = activeLabelObj.x * dispW
+            const topPx = activeLabelObj.y * dispH - fontPx * 0.6
+            const lines = activeLabelObj.text.split('\n').length || 1
+            return (
+              <textarea
+                ref={inlineRef}
+                value={activeLabelObj.text}
+                onChange={(e) => updateLabel({ text: e.target.value })}
+                onBlur={() => setEditing(false)}
+                spellCheck={false}
+                style={{
+                  position: 'absolute',
+                  left: leftPx,
+                  top: topPx,
+                  width: Math.max(40, dispW - leftPx),
+                  height: lines * fontPx * 1.2 + 6,
+                  font: `bold ${fontPx}px sans-serif`,
+                  lineHeight: 1.2,
+                  color: activeLabelObj.color === 'white' ? '#ffffff' : '#111111',
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  resize: 'none',
+                  padding: 0,
+                  margin: 0,
+                  whiteSpace: 'pre',
+                  overflow: 'hidden',
+                  caretColor: activeLabelObj.color === 'white' ? '#ffffff' : '#111111',
+                  textShadow:
+                    activeLabelObj.color === 'white'
+                      ? '0 0 3px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.7)'
+                      : '0 0 3px rgba(255,255,255,.85)',
+                }}
+              />
+            )
+          })()}
+      </div>
 
       <input
         ref={fileRef}
