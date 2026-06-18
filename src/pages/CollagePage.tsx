@@ -5,6 +5,7 @@ const GAP_ON = 14
 
 type Ratio = { key: string; label: string; w: number; h: number }
 const RATIOS: Ratio[] = [
+  { key: 'auto', label: 'Asli', w: 0, h: 0 }, // dihitung dari gambar
   { key: '3:4', label: '3:4', w: 900, h: 1200 },
   { key: '1:1', label: '1:1', w: 1080, h: 1080 },
   { key: '9:16', label: '9:16', w: 900, h: 1600 },
@@ -67,6 +68,7 @@ const DEFAULT_LABEL_TEXT = '•-----A '
 
 interface Slide {
   id: string
+  ratioKey: string
   layoutKey: string
   showGap: boolean
   slots: Slot[]
@@ -79,13 +81,28 @@ interface PoolImage {
 }
 
 const layoutOf = (key: string) => LAYOUTS.find((l) => l.key === key) ?? LAYOUTS[0]
-const makeSlide = (id: string, layoutKey: string): Slide => ({
+const makeSlide = (id: string, layoutKey: string, ratioKey: string): Slide => ({
   id,
+  ratioKey,
   layoutKey,
   showGap: false,
   slots: layoutOf(layoutKey).cells.map(() => emptySlot()),
   labels: [],
 })
+
+// Dimensi output slide. "auto" -> ikut rasio gambar pertama (sisi terpanjang ~1200).
+function slideDims(slide: Slide): { w: number; h: number } {
+  if (slide.ratioKey === 'auto') {
+    const img = slide.slots.find((s) => s.img)?.img
+    if (img) {
+      const scale = 1200 / Math.max(img.naturalWidth, img.naturalHeight)
+      return { w: Math.round(img.naturalWidth * scale), h: Math.round(img.naturalHeight * scale) }
+    }
+    return { w: 900, h: 1200 }
+  }
+  const r = RATIOS.find((x) => x.key === slide.ratioKey)
+  return r && r.w ? { w: r.w, h: r.h } : { w: 900, h: 1200 }
+}
 
 function cellPx(c: Cell, W: number, H: number, gap: number): Cell {
   return { x: c.x * W + gap / 2, y: c.y * H + gap / 2, w: c.w * W - gap, h: c.h * H - gap }
@@ -99,9 +116,9 @@ type DrawOpts = {
   hideLabelId?: string | null
 }
 
-function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, ratio: Ratio, opts: DrawOpts) {
-  const W = ratio.w
-  const H = ratio.h
+function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: number; h: number }, opts: DrawOpts) {
+  const W = dims.w
+  const H = dims.h
   const gap = slide.showGap ? GAP_ON : 0
   const layout = layoutOf(slide.layoutKey)
   ctx.fillStyle = '#ffffff'
@@ -191,17 +208,16 @@ export default function CollagePage() {
   const drag = useRef<{ mode: 'cell' | 'label'; id?: string; x: number; y: number } | null>(null)
   const nid = () => String(idRef.current++)
 
-  const [ratioKey, setRatioKey] = useState('3:4')
-  const [slides, setSlides] = useState<Slide[]>([makeSlide('s0', 'cols3')])
+  const [slides, setSlides] = useState<Slide[]>([makeSlide('s0', 'cols3', '3:4')])
   const [current, setCurrent] = useState(0)
   const [selected, setSelected] = useState(0)
   const [activeLabel, setActiveLabel] = useState<string | null>(null)
   const [pool, setPool] = useState<PoolImage[]>([])
 
-  const ratio = RATIOS.find((r) => r.key === ratioKey) ?? RATIOS[0]
-  const OUT_W = ratio.w
-  const OUT_H = ratio.h
   const slide = slides[current]
+  const dims = slideDims(slide)
+  const OUT_W = dims.w
+  const OUT_H = dims.h
   const layout = layoutOf(slide.layoutKey)
   const activeLabelObj = slide.labels.find((l) => l.id === activeLabel) ?? null
 
@@ -214,7 +230,7 @@ export default function CollagePage() {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    drawSlide(ctx, slide, ratio, {
+    drawSlide(ctx, slide, dims, {
       showSel,
       activeCell: selected,
       activeLabel,
@@ -226,7 +242,7 @@ export default function CollagePage() {
   useEffect(() => {
     draw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slides, current, ratioKey, selected, activeLabel, editing])
+  }, [slides, current, selected, activeLabel, editing])
 
   // Ukuran tampilan canvas (untuk posisikan editor teks inline).
   useEffect(() => {
@@ -245,7 +261,7 @@ export default function CollagePage() {
 
   // ---------- Slide ----------
   function addSlide() {
-    const s = makeSlide(nid(), 'full')
+    const s = makeSlide(nid(), 'full', 'auto')
     setSlides((prev) => [...prev, s])
     setCurrent(slides.length)
     setSelected(0)
@@ -254,6 +270,7 @@ export default function CollagePage() {
   function duplicateSlide() {
     const copy: Slide = {
       id: nid(),
+      ratioKey: slide.ratioKey,
       layoutKey: slide.layoutKey,
       showGap: slide.showGap,
       slots: slide.slots.map((s) => ({ ...s })),
@@ -291,6 +308,9 @@ export default function CollagePage() {
   }
   function setShowGap(v: boolean) {
     patchSlide((s) => ({ ...s, showGap: v }))
+  }
+  function setRatio(key: string) {
+    patchSlide((s) => ({ ...s, ratioKey: key }))
   }
 
   // ---------- Gambar ----------
@@ -413,11 +433,12 @@ export default function CollagePage() {
 
   // ---------- Unduh ----------
   function exportCanvas(s: Slide, name: string): Promise<void> {
+    const d = slideDims(s)
     const tmp = document.createElement('canvas')
-    tmp.width = OUT_W
-    tmp.height = OUT_H
+    tmp.width = d.w
+    tmp.height = d.h
     const ctx = tmp.getContext('2d')!
-    drawSlide(ctx, s, ratio, { showSel: false, activeCell: -1, activeLabel: null })
+    drawSlide(ctx, s, d, { showSel: false, activeCell: -1, activeLabel: null })
     return new Promise((resolve) => {
       tmp.toBlob(
         (blob) => {
@@ -462,17 +483,6 @@ export default function CollagePage() {
         sudah dipakai bisa dipakai ulang di slide lain. Lalu unduh semua.
       </p>
 
-      <div>
-        <label className="label">Rasio (berlaku semua slide)</label>
-        <div className="flex flex-wrap gap-2">
-          {RATIOS.map((r) => (
-            <button key={r.key} onClick={() => setRatioKey(r.key)} className={chip(ratioKey === r.key)}>
-              {r.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Slide tabs */}
       <div>
         <label className="label">Slide</label>
@@ -492,6 +502,17 @@ export default function CollagePage() {
           <button onClick={addSlide} className="btn-ghost text-sm">+ Slide</button>
           <button onClick={duplicateSlide} className="btn-ghost text-sm">Duplikat</button>
           <button onClick={deleteSlide} className="btn-ghost text-sm text-red-600">Hapus slide</button>
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Rasio slide {current + 1}</label>
+        <div className="flex flex-wrap gap-2">
+          {RATIOS.map((r) => (
+            <button key={r.key} onClick={() => setRatio(r.key)} className={chip(slide.ratioKey === r.key)}>
+              {r.label}
+            </button>
+          ))}
         </div>
       </div>
 
