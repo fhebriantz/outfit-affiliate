@@ -1,5 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useToast } from '../context/ToastContext'
+import { useAuth } from '../context/AuthContext'
+import { getSettings, listAllItems, listPostings } from '../lib/db'
+import { buildCaption, formatTanggalIndo } from '../lib/format'
+import { DEFAULT_HASHTAGS } from '../lib/types'
+import type { Item, Posting } from '../lib/types'
 import { humanizeCanvas, injectIphoneExif } from '../lib/humanize'
 
 const GAP_ON = 14
@@ -230,6 +235,38 @@ export default function CollagePage() {
   const [pool, setPool] = useState<PoolImage[]>([])
   const [fxGrain, setFxGrain] = useState(false)
   const [fxMeta, setFxMeta] = useState(false)
+  const { user } = useAuth()
+  const [postings, setPostings] = useState<Posting[]>([])
+  const [itemsByPosting, setItemsByPosting] = useState<Record<string, Item[]>>({})
+  const [defaultHashtags, setDefaultHashtags] = useState(DEFAULT_HASHTAGS)
+  const [captionPostingId, setCaptionPostingId] = useState('')
+
+  useEffect(() => {
+    if (!user) return
+    ;(async () => {
+      try {
+        const [ps, items, settings] = await Promise.all([
+          listPostings(),
+          listAllItems(),
+          getSettings(user.id),
+        ])
+        const grouped: Record<string, Item[]> = {}
+        for (const it of items) (grouped[it.posting_id] ??= []).push(it)
+        setPostings(ps.filter((p) => !p.archived_at))
+        setItemsByPosting(grouped)
+        setDefaultHashtags(settings.default_hashtags)
+      } catch {
+        /* abaikan; share tanpa caption tetap bisa */
+      }
+    })()
+  }, [user])
+
+  const shareCaption = useMemo(() => {
+    if (!captionPostingId) return ''
+    const p = postings.find((x) => x.id === captionPostingId)
+    if (!p) return ''
+    return buildCaption(itemsByPosting[p.id] ?? [], p.caption_hashtags ?? defaultHashtags, p.catatan ?? '')
+  }, [captionPostingId, postings, itemsByPosting, defaultHashtags])
 
   const slide = slides[current]
   const dims = slideDims(slide)
@@ -532,8 +569,8 @@ export default function CollagePage() {
     }
   }
 
-  // ---------- Unduh ----------
-  function exportCanvas(s: Slide, name: string) {
+  // ---------- Render & Unduh ----------
+  function renderSlideBlob(s: Slide): Blob {
     const d = slideDims(s)
     const tmp = document.createElement('canvas')
     tmp.width = d.w
@@ -541,15 +578,16 @@ export default function CollagePage() {
     const ctx = tmp.getContext('2d')!
     drawSlide(ctx, s, d, { showSel: false, activeCell: -1, activeLabel: null })
     if (fxGrain) humanizeCanvas(ctx, d.w, d.h) // grain + color jitter
-    let dataUrl = tmp.toDataURL('image/jpeg', 0.95) // re-encode (selalu buang metadata sumber) + quality 0.95
+    let dataUrl = tmp.toDataURL('image/jpeg', 0.95) // re-encode (buang metadata sumber) + quality 0.95
     if (fxMeta) dataUrl = injectIphoneExif(dataUrl, d.w, d.h) // suntik EXIF iPhone 13
-    // Unduh via Blob (lebih andal di HP daripada data URL besar).
     const b64 = dataUrl.split(',')[1] ?? ''
     const bin = atob(b64)
     const arr = new Uint8Array(bin.length)
     for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
-    const blob = new Blob([arr], { type: 'image/jpeg' })
-    const url = URL.createObjectURL(blob)
+    return new Blob([arr], { type: 'image/jpeg' })
+  }
+  function exportCanvas(s: Slide, name: string) {
+    const url = URL.createObjectURL(renderSlideBlob(s))
     const a = document.createElement('a')
     a.href = url
     a.download = name
@@ -557,6 +595,31 @@ export default function CollagePage() {
     a.click()
     a.remove()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+  async function shareSlides() {
+    const base = Date.now()
+    const files = slides.map((s, i) => new File([renderSlideBlob(s)], `${base + i}.jpg`, { type: 'image/jpeg' }))
+    // Salin caption dulu (TikTok biasanya tidak mengisi caption dari share sheet).
+    if (shareCaption) {
+      try {
+        await navigator.clipboard.writeText(shareCaption)
+      } catch {
+        /* abaikan */
+      }
+    }
+    const data: { files: File[]; text?: string } = { files }
+    if (shareCaption) data.text = shareCaption
+    const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean }
+    if (nav.share && (!nav.canShare || nav.canShare({ files }))) {
+      try {
+        await nav.share(data)
+        if (shareCaption) toast('Caption disalin — tinggal paste di app')
+      } catch {
+        /* dibatalkan user */
+      }
+    } else {
+      toast('Browser tidak mendukung Share gambar. Pakai Unduh lalu upload manual.', 'err')
+    }
   }
   function downloadCurrent() {
     exportCanvas(slide, `${Date.now()}.jpg`)
@@ -870,12 +933,37 @@ export default function CollagePage() {
         </label>
       </div>
 
+      <div>
+        <label className="label">Caption untuk dibagikan (opsional)</label>
+        <select
+          className="input"
+          value={captionPostingId}
+          onChange={(e) => setCaptionPostingId(e.target.value)}
+        >
+          <option value="">(tanpa caption)</option>
+          {postings.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label || formatTanggalIndo(p.tanggal)}
+              {p.ref_nama ? ` — ${p.ref_nama}` : ''}
+            </option>
+          ))}
+        </select>
+        {shareCaption && (
+          <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-xs text-gray-600">
+            {shareCaption}
+          </pre>
+        )}
+      </div>
+
       <div className="flex flex-wrap gap-2">
         <button onClick={downloadCurrent} className="btn-secondary flex-1">
           Unduh slide ini
         </button>
-        <button onClick={downloadAll} className="btn-primary flex-1">
+        <button onClick={downloadAll} className="btn-secondary flex-1">
           Unduh semua ({slides.length})
+        </button>
+        <button onClick={shareSlides} className="btn-primary w-full">
+          Bagikan {slides.length} gambar{shareCaption ? ' + salin caption' : ''}
         </button>
       </div>
     </div>
