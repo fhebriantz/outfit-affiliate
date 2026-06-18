@@ -1,10 +1,10 @@
 # Outfit Affiliate Manager
 
-Web app untuk mengelola pekerjaan **AI influencer affiliate outfit**. Tiap **postingan per tanggal** menyimpan: nomor produk, link sumber Shopee, link affiliate hasil, screenshot referensi, dan caption TikTok — lengkap dengan **deteksi produk duplikat**, **penanda tahap pengerjaan**, dan **panel cek sinkron** supaya nomor ↔ link ↔ caption tidak ketuker.
+Web app untuk mengelola pekerjaan **AI influencer affiliate outfit** end-to-end: kelola postingan & produk, kode katalog otomatis, deteksi produk duplikat, generate caption TikTok, upload screenshot, sampai bikin **carousel (collage)** dengan layer teks + **humanizer** (anti-fingerprint AI) lalu **bagikan** ke aplikasi.
 
-Dibuat dengan **React + Vite + TypeScript + Tailwind**, data tersimpan di **Supabase** (gratis) sehingga bisa diakses dari **HP & PC dengan data yang sama**. Hosting **gratis** (Vercel/Netlify/Cloudflare Pages).
+Dibuat dengan **React + Vite + TypeScript + Tailwind**, data di **Supabase** (gratis) → bisa diakses dari **HP & PC dengan data sama**. Hosting **gratis** (Vercel). Bisa di-**install ke HP** (PWA).
 
-> Generate gambar tetap dilakukan di RunningHub (di luar app). App ini fokus mengelola link, nomor, caption, screenshot referensi, dan arsip per tanggal.
+> Generate gambar AI tetap di RunningHub (di luar app). App ini mengurus link, nomor/kode, caption, screenshot, arsip, dan pembuatan gambar carousel.
 
 ---
 
@@ -12,14 +12,10 @@ Dibuat dengan **React + Vite + TypeScript + Tailwind**, data tersimpan di **Supa
 - [Fitur](#fitur)
 - [Teknologi](#teknologi)
 - [Setup (langkah demi langkah)](#setup-langkah-demi-langkah)
-  - [1. Buat project Supabase](#1-buat-project-supabase)
-  - [2. Jalankan schema database](#2-jalankan-schema-database)
-  - [3. Konfigurasi Auth](#3-konfigurasi-auth)
-  - [4. Ambil kredensial API](#4-ambil-kredensial-api)
-  - [5. Jalankan di lokal](#5-jalankan-di-lokal)
 - [Variabel environment](#variabel-environment)
 - [Deploy gratis](#deploy-gratis)
 - [Cara penggunaan](#cara-penggunaan)
+- [Halaman Collage / Slide](#halaman-collage--slide)
 - [Konsep penting](#konsep-penting)
 - [Backup & keamanan](#backup--keamanan)
 - [Troubleshooting](#troubleshooting)
@@ -30,199 +26,202 @@ Dibuat dengan **React + Vite + TypeScript + Tailwind**, data tersimpan di **Supa
 ## Fitur
 
 **Postingan & item**
-- Daftar postingan per tanggal, label otomatis "9 Juni 2026".
-- Item produk: **nomor global** (lanjut otomatis dari nomor terakhir, bisa diedit), kategori, kode referensi (mis. `b 583`), link sumber, link affiliate. Bisa diurutkan & dihapus.
-- **Tempel banyak link sumber sekaligus → item otomatis dibuat** (nomor lanjut + deteksi duplikat jalan).
-- **Duplikat postingan** (salin struktur kategori; nomor lanjut otomatis) untuk hari berikutnya.
+- Daftar postingan, **label folder auto-increment 3 digit** (`001`, `002`, …) — editable, pakai counter sendiri (`settings.last_folder`).
+- Item produk: **kode katalog** `A 100`–`A 999` lalu `B 100`–`B 999`, dst (di belakang layar tetap nomor integer; counter atomik anti-kembar). Kode bisa diedit manual.
+- **Tempel banyak link sumber sekaligus → item otomatis dibuat** (kode lanjut + deteksi duplikat + autofill kategori dari produk yang sudah ada).
+- **Duplikat postingan** (salin struktur kategori; kode lanjut otomatis).
+- **Title** caption default `( SPILL OUTFIT DI CAPTION 👇 )` (editable) → jadi baris pembuka caption.
 
-**Deteksi duplikat**
-- Mengenali produk yang sama dari link Shopee berdasarkan `{shop_id}/{product_id}` (abaikan `www`, query `?...`, dan format link: `/product/...`, `/{username}/...` mobile, `-i.{shop}.{item}`). Kalau produk sudah pernah dipakai → tawarkan **pakai ulang nomor & link affiliate lama**.
-- **Short link** (`s.shopee.co.id/xxx`) otomatis diperluas dulu via serverless function `/api/resolve` (jalan di Vercel) supaya tetap bisa dideteksi duplikatnya. Di dev lokal fungsi ini tidak aktif, jadi short link dibiarkan apa adanya (alur tetap jalan).
+**Deteksi duplikat & short link**
+- Kenali produk sama dari link Shopee berdasarkan `{shop_id}/{product_id}` — abaikan `www`, query `?...`, dan beragam format (`/product/...`, `/{username}/...` mobile, `-i.{shop}.{item}`).
+- Produk yang sudah pernah dipakai → tawarkan **pakai ulang kode + link affiliate + kategori**.
+- **Short link** (`s.shopee.co.id`, `shp.ee`, `shope.ee`, dll) otomatis diperluas via serverless `/api/resolve` — domain apa pun diterima **selama berakhir di Shopee** (validasi hasil + proteksi SSRF). Jalan di lokal (Vite middleware) maupun Vercel.
 
 **Link & caption**
-- **Copy semua link sumber** dalam bentuk bersih (`https://shopee.co.id/product/{shop}/{item}`, tanpa query), dipisah per baris → tinggal paste ke aplikasi affiliate Shopee. Default hanya menampilkan item yang belum punya affiliate.
-- **Tempel hasil link affiliate** sekaligus (pisah baris/spasi/koma) dengan **preview pemetaan** link → item sebelum diterapkan.
-- **Generate caption** TikTok otomatis:
+- **Copy link sumber** dalam bentuk bersih (`https://shopee.co.id/product/{shop}/{item}`, tanpa query), dipisah baris → paste ke aplikasi affiliate Shopee. Default hanya yang belum punya affiliate.
+- **Tempel hasil link affiliate** sekaligus dengan **preview pemetaan** link → item.
+- **Generate caption** otomatis (tiap bagian dipisah 1 baris kosong):
   ```
-  Outfit yang aku pake
-  -blouse : no 1
-  -rok : no 2
-  -sepatu : no 3
+  ( SPILL OUTFIT DI CAPTION 👇 )
+
+  Detail outfit :
+  -blouse : no A 100
+  -rok : no A 101
+  -sepatu : no A 102
+
+  Cara order
+  1. Klik link di bio profil aku
+  2. Cari nomor produk sesuai yang aku tulis di atas
+  3. Klik produknya aja nanti kalian akan di arahin ke halaman checkout
+
   #recomendationoutfithijab #hijaboutfit #hijabootd
   ```
-- Tombol **buka link** (↗) sumber/affiliate di tiap item untuk verifikasi cepat.
+- Tombol **buka link** (↗) sumber/affiliate per item.
+
+**Halaman Produk** (katalog global)
+- Semua produk yang pernah dipakai (termasuk yang belum ada affiliate). **Edit kode, kategori, link sumber & link affiliate** di sini → perubahan **menyebar ke semua postingan** yang memakai produk itu. Edit di dalam postingan juga ikut menyebar bila link-nya sama. Pencarian by kode/kategori/link.
+
+**Collage / Slide** (lihat bagian khusus di bawah)
+- Bikin carousel multi-slide, layer teks editable, pinch zoom, rasio per-slide, **humanizer**, **bagikan**.
 
 **Gambar & arsip**
-- **Upload screenshot referensi** (banyak sekaligus), otomatis dikompres. Thumbnail tampil di dashboard (bertumpuk di HP biar hemat ruang).
-- **Link Google Drive** (hasil generate) & **link video TikTok referensi** disimpan per postingan, sekali klik kebuka.
+- **Upload screenshot** (banyak sekaligus) + **paste langsung (Ctrl+V)**, otomatis dikompres. Thumbnail tampil di dashboard (bertumpuk di HP).
+- **Link Google Drive** (hasil generate) + tombol "Buka Drive" (salin nama folder ke clipboard). **Link video TikTok referensi** sekali klik kebuka.
 
-**Pemantauan progres**
-- **Tahap & filter**: Belum screenshot · Belum generate · Belum affiliate · Lengkap.
-- **Cek sinkron**: semua item punya link sumber & affiliate, jumlah cocok, nomor urut tanpa lompat/duplikat, link & tanggal referensi terisi.
-- Dashboard: **pencarian** (nomor, kategori, kode ref, nama referensi, link, tanggal), **collapse** daftar yang belum lengkap, **quick action** ubah status.
+**Pemantauan & navigasi**
+- **Tahap & filter**: Belum screenshot · Belum generate · Belum affiliate · Lengkap. Di HP filter jadi dropdown.
+- **Cek sinkron**, pencarian, **collapse** daftar yang belum lengkap, quick action ubah status.
+- Navigasi: nav atas (desktop) / **burger menu** (HP), berikon.
 
 **Lain-lain**
 - Login Supabase + **Row Level Security** (data privat per user).
-- **Arsip**: tombol "Arsip" memindahkan postingan ke arsip (soft delete) — bisa **Pulihkan** atau **Hapus permanen**. Nomor item tidak terpengaruh.
-- **Counter nomor monotonic** (`settings.last_number`): nomor item tidak pernah dipakai ulang walau item dihapus/diarsip. Bisa diatur manual di Pengaturan (jaga-jaga kalau ingin melanjutkan dari nomor tertentu).
-- **Export/backup ke JSON**.
-- **PWA**: bisa "Add to Home Screen" di HP.
+- **Arsip** (soft delete) → Pulihkan / Hapus permanen.
+- **Export & Import JSON** (backup 2 arah).
+- **PWA** (Add to Home Screen).
 
 ---
 
 ## Teknologi
 | Bagian | Teknologi |
 |---|---|
-| Frontend | React 18, Vite 5, TypeScript, Tailwind CSS |
-| Routing | React Router |
-| Backend/DB | Supabase (Postgres + Auth + Storage) |
-| Hosting | Vercel / Netlify / Cloudflare Pages (statis, gratis) |
+| Frontend | React 18, Vite 5, TypeScript, Tailwind CSS, React Router |
+| Backend/DB | Supabase (Postgres + Auth + Storage + RPC) |
+| Lain | piexifjs (EXIF), Web Share API, Canvas API |
+| Hosting | Vercel (serverless `/api/resolve`) / Netlify / Cloudflare Pages |
 
 ---
 
 ## Setup (langkah demi langkah)
 
 ### 1. Buat project Supabase
-1. Daftar di [supabase.com](https://supabase.com) (gratis).
-2. **New project** → pilih region terdekat (mis. **Southeast Asia / Singapore**) → tunggu provisioning selesai (~2 menit).
+Daftar di [supabase.com](https://supabase.com) → **New project** (region terdekat, mis. Singapore).
 
 ### 2. Jalankan schema database
-1. Di project Supabase, buka **SQL Editor → New query**.
-2. Copy seluruh isi [`supabase/schema.sql`](supabase/schema.sql), paste, lalu klik **Run**.
-3. Ini otomatis membuat tabel `postings`, `items`, `images`, `settings`, semua **Row Level Security policy**, dan **bucket Storage `screenshots`** beserta policy-nya. Aman dijalankan ulang (idempotent).
+**SQL Editor → New query** → paste seluruh [`supabase/schema.sql`](supabase/schema.sql) → **Run**. Membuat tabel `postings`, `items`, `images`, `settings`, semua RLS, bucket Storage `screenshots`, dan fungsi atomik `reserve_item_numbers`. Aman dijalankan ulang (idempotent) — jalankan ulang kapan pun schema berubah.
 
 ### 3. Konfigurasi Auth
-- Buka **Authentication → Sign In / Providers → Email**.
-- Untuk kemudahan, **matikan "Confirm email"** supaya bisa langsung login tanpa cek email.
-- (Nanti, setelah akunmu dibuat) **matikan "Allow new users to sign up"** agar orang lain tidak bisa daftar.
+**Authentication → Sign In / Providers → Email**:
+- Matikan **Confirm email** (biar bisa langsung login).
+- (Setelah akunmu jadi) matikan **Allow new users to sign up**.
 
 ### 4. Ambil kredensial API
-Buka **Project Settings → API**, catat:
-- **Project URL** → untuk `VITE_SUPABASE_URL`
-- **anon / publishable key** → untuk `VITE_SUPABASE_ANON_KEY`
+**Project Settings → API** → catat **Project URL** & **anon/publishable key**.
 
-> Catatan: membuka Project URL langsung di browser akan menampilkan `{"error":"requested path is invalid"}` — itu **normal**, karena URL itu endpoint API, bukan halaman web.
+> Membuka Project URL langsung di browser → `{"error":"requested path is invalid"}` itu **normal** (itu endpoint API, bukan halaman).
 
 ### 5. Jalankan di lokal
 ```bash
-# 1. Install dependency
 npm install
-
-# 2. Salin contoh env, lalu isi kredensial Supabase
-cp .env.example .env
-#    edit .env → isi VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY
-
-# 3. Jalankan dev server
-npm run dev
+cp .env.example .env     # isi VITE_SUPABASE_URL & VITE_SUPABASE_ANON_KEY
+npm run dev              # http://localhost:5173
 ```
-Buka **http://localhost:5173** → **Daftar** akun (email + password, sekali saja) → **Masuk**.
-
-Perintah lain:
-- `npm run build` — build produksi ke folder `dist/`.
-- `npm run preview` — preview hasil build.
+Daftar akun (sekali) → Masuk. Build produksi: `npm run build`.
 
 ---
 
 ## Variabel environment
-Isi di file `.env` (lokal) atau di dashboard hosting (produksi):
-
 | Variabel | Wajib | Keterangan |
 |---|---|---|
-| `VITE_SUPABASE_URL` | ✅ | Project URL dari Supabase |
-| `VITE_SUPABASE_ANON_KEY` | ✅ | anon/publishable key dari Supabase |
-| `VITE_ALLOW_SIGNUP` | ➖ | `false` untuk menyembunyikan menu Daftar. Kosong/`true` = pendaftaran aktif (pakai saat buat akun pertama) |
+| `VITE_SUPABASE_URL` | ✅ | Project URL Supabase |
+| `VITE_SUPABASE_ANON_KEY` | ✅ | anon/publishable key |
+| `VITE_ALLOW_SIGNUP` | ➖ | `false` = sembunyikan menu Daftar. Kosong/`true` = aktif (untuk buat akun pertama) |
 
-File `.env` sudah masuk `.gitignore` — kredensial tidak akan ikut ter-commit.
+`.env` sudah di-`.gitignore`.
 
 ---
 
 ## Deploy gratis
 
-### Opsi A — Vercel (paling mudah)
-1. Push repo ke GitHub.
-2. Di [vercel.com](https://vercel.com): **Add New → Project** → import repo.
-3. Framework auto-terdeteksi **Vite** (build `npm run build`, output `dist`).
-4. **Environment Variables** → tambahkan `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (+ `VITE_ALLOW_SIGNUP=false` bila ingin matikan pendaftaran).
-5. **Deploy** → dapat URL `https://namamu.vercel.app` → buka di HP → login → **Add to Home Screen**.
+### Vercel (rekomendasi — mendukung serverless `/api/resolve`)
+1. Push repo ke GitHub → di [vercel.com](https://vercel.com) **Add New → Project** → import repo.
+2. Framework auto **Vite** (build `npm run build`, output `dist`).
+3. **Environment Variables** → `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (+ `VITE_ALLOW_SIGNUP=false` opsional).
+4. **Deploy** → buka URL di HP → login → Add to Home Screen.
 
-File [`vercel.json`](vercel.json) sudah menangani routing SPA (deep link tidak 404).
-
-### Opsi B — Netlify / Cloudflare Pages
-- Build command `npm run build`, publish directory `dist`.
-- Tambahkan env yang sama.
-- File [`public/_redirects`](public/_redirects) menangani routing SPA.
+[`vercel.json`](vercel.json) menangani routing SPA + mengecualikan `/api`. Netlify/Cloudflare Pages juga bisa (build `npm run build`, dir `dist`) tapi fungsi resolve short link adalah serverless khas Vercel.
 
 ---
 
 ## Cara penggunaan
 
-### Alur kerja harian (ringkas)
-1. **+ Postingan baru** — tanggal & label terisi otomatis. Isi nama + link referensi TikTok (mis. Kirana), tanggal postingan referensi (untuk dicek manual), dan link folder **Drive** hasil generate.
-2. **Upload screenshot** referensi (boleh banyak; tiap varian warna).
-3. **Tambah item** — paling cepat: **tempel semua link sumber sekaligus** lalu **Buat item**. Nomor lanjut otomatis; produk yang sudah pernah dipakai langsung **reuse nomor & affiliate**.
-4. **Copy semua link sumber** (sudah bersih) → paste ke aplikasi affiliate Shopee → dapat link affiliate.
-5. **Tempel hasil link affiliate** → cek **preview pemetaan** → **Terapkan ke item**.
-6. **Copy caption** → paste saat upload ke TikTok.
-7. Lihat **Cek sinkron** — pastikan semua ✓.
-8. Ubah **status** → "Sudah posting" (bisa langsung dari kartu dashboard).
-
-### Penjelasan layar Editor Postingan
-- **Detail postingan** — tanggal, label, referensi (nama/URL/tanggal), link Drive, status, catatan. Semua **auto-save** saat kamu klik keluar dari kolom (tidak ada tombol simpan).
-- **Gambar screenshot** — tombol upload (multi-file), tap thumbnail untuk lihat besar, hapus per gambar.
-- **Item produk** — kotak *tempel link sumber sekaligus* + tombol *+ Tambah 1 item*. Tiap item: No, kategori, kode ref, link sumber, link affiliate, tombol naik/turun/hapus, tombol buka link (↗). Chip kuning muncul bila produk sama dengan item lain.
-- **1. Link sumber** — daftar link bersih siap copy; checkbox "tampilkan semua".
-- **2. Tempel hasil affiliate** — textarea + **preview pemetaan** link → item + tombol Terapkan.
-- **3. Caption TikTok** — preview live + tombol copy + edit hashtag.
-- **Cek sinkron** — checklist ✓/⚠.
+### Alur harian
+1. **+ Postingan baru** — label `001` otomatis. Isi nama + link referensi TikTok + link Drive.
+2. **Tambah item** — paling cepat: **tempel semua link sumber** → **Buat item** (kode lanjut, duplikat & kategori auto). Short link otomatis diperluas.
+3. **Upload screenshot** referensi (atau Ctrl+V).
+4. **Copy link sumber** (bersih) → paste ke aplikasi affiliate Shopee → dapat link affiliate.
+5. **Tempel hasil affiliate** → cek preview → **Terapkan**.
+6. **Copy caption** → paste ke TikTok.
+7. Cek panel **Sinkron** → set status "Sudah posting".
 
 ### Dashboard
-- **Pencarian** (nomor/kategori/kode ref/nama referensi/link/tanggal).
-- **Filter tahap**: Semua · Belum screenshot · Belum generate · Belum affiliate · Lengkap (dengan jumlah).
-- Tiap kartu: thumbnail preview, badge sinkron, pill **"N belum"** (tap → collapse daftar yang belum lengkap), dropdown **status**, tombol Duplikat/Hapus.
+Pencarian, filter tahap (dropdown di HP), thumbnail, badge sinkron, pill "N belum" (collapse detail), dropdown status, Duplikat, Arsip. Tombol **Arsip (N)** muncul kalau ada yang diarsip.
+
+### Halaman Produk
+Edit kode/kategori/link affiliate per produk → menyebar ke semua postingan terkait. Untuk merapikan katalog & ganti link produk yang habis.
 
 ### Pengaturan
-- **Hashtag default** caption & **preset kategori**.
-- **Export ke JSON** untuk backup.
+Hashtag default, preset kategori, **counter nomor item** & **counter label folder** (bisa di-set untuk jaga-jaga), **Export/Import JSON**.
+
+---
+
+## Halaman Collage / Slide
+Untuk membuat gambar carousel siap-posting.
+
+- **Multi-slide**: tab slide, + Slide, Duplikat, Hapus. Tiap slide punya rasio, layout, gambar, teks sendiri.
+- **Rasio per-slide**: `Asli` (ikut rasio gambar), `3:4`, `1:1`, `9:16`, `4:6`. Slide baru default `Asli`.
+- **Layout**: 1 gambar, 2 baris/kolom, 3 baris/kolom, 1+2, 2+1, 4 kotak. Toggle garis pemisah.
+- **Gambar**: tap sel kosong → langsung pilih gambar; **pool** gambar dipakai-ulang lintas slide; geser (drag) & **zoom (slider / pinch 2 jari)**.
+- **Layer teks**: tambah teks (default `•-----A ` untuk penunjuk nomor, atau judul cover). **Edit langsung di gambar** (tap pilih → tap lagi = ketik), handle **geser/hapus/duplikat** di sudut, ukuran & warna (outline auto).
+- **Humanizer** (saat unduh/bagikan), dua switch terpisah:
+  - **Grain + color jitter** — noise & geser warna halus (meniru `batch_humanizer`), tiap unduh sedikit beda.
+  - **Metadata iPhone 13** — re-encode (buang metadata sumber) + suntik EXIF iPhone 13 lengkap (Make/Model/ISO/exposure/lensa/dimensi).
+- **Unduh** (slide ini / semua, nama file timestamp) atau **Bagikan** (Web Share: kirim gambar ke TikTok/IG/WA + salin caption dari postingan terpilih).
+
+> Catatan jujur: humanizer mengurangi fingerprint level-piksel & metadata, tapi bukan jaminan 100% dan banyak platform menghapus EXIF saat upload. TikTok umumnya tidak mengisi caption dari share sheet — makanya caption disalin ke clipboard untuk di-paste.
 
 ---
 
 ## Konsep penting
-
-- **Auto-save** — semua field tersimpan otomatis saat kehilangan fokus (blur) / saat memilih dropdown. Klik area lain dulu sebelum menutup tab agar isian terakhir tersimpan.
-- **Nomor global** — nomor item berlanjut lintas postingan (postingan A pakai 1–3, B lanjut 4–6, dst). Bisa diedit manual untuk menyesuaikan urutan di aplikasi Shopee.
-- **Reuse produk** — deteksi duplikat berdasarkan `{shop_id}/{product_id}`. Produk yang sama memakai **nomor & link affiliate yang sama** (tidak perlu generate ulang) dan otomatis tidak ikut di "copy link sumber".
-- **Dua sisi link affiliate** — kotak "Tempel hasil affiliate" hanya **alat input cepat**; data aslinya tersimpan di kolom **"Link affiliate-ku"** tiap item.
+- **Auto-save** — field tersimpan saat blur / pilih dropdown.
+- **Kode katalog** — tampilan/`input` pakai kode `A 100`; internal tetap integer (`my_number`). Counter **monotonic & atomik** (RPC `reserve_item_numbers`) → tidak pernah kembar walau item dihapus/diarsip.
+- **Reuse produk** — identitas = `{shop}/{item}` link sumber. Produk sama pakai kode + affiliate + kategori yang sama, dan tidak ikut di "copy link sumber".
+- **Edit menyebar** — ubah kode/link/kategori produk (di Produk atau di postingan) berlaku ke semua item dengan produk sama. `urutan` per-postingan tidak ikut.
 
 ---
 
 ## Backup & keamanan
-- **Backup**: Pengaturan → **Export ke JSON** (lakukan berkala; free tier Supabase **auto-pause** bila ~1 minggu tidak ada aktivitas).
-- **Keamanan**: anon/publishable key memang dipakai di browser — itu normal. Data tetap aman karena **Row Level Security**: tiap user hanya bisa baca/tulis datanya sendiri.
-- **Matikan pendaftaran** setelah akunmu dibuat: set `VITE_ALLOW_SIGNUP=false` **dan** matikan "Allow new users to sign up" di Supabase (Auth → Email).
+- **Export/Import JSON** (Pengaturan) — backup & restore postingan + item (gambar tidak ikut; tersimpan di Storage). Lakukan berkala (free tier Supabase **auto-pause** bila ~1 minggu tidak aktif; data tidak hilang, tinggal restore).
+- **RLS** — tiap user hanya bisa baca/tulis datanya sendiri; anon key di browser itu normal.
+- **Matikan pendaftaran** setelah akun jadi: `VITE_ALLOW_SIGNUP=false` + matikan signup di Supabase.
 
 ---
 
 ## Troubleshooting
 | Masalah | Solusi |
 |---|---|
-| Halaman "Supabase belum dikonfigurasi" | `.env` belum diisi / salah. Cek `VITE_SUPABASE_URL` & `VITE_SUPABASE_ANON_KEY`, lalu restart `npm run dev`. |
-| Gagal login / "Email not confirmed" | Matikan **Confirm email** di Supabase (Auth → Email), atau cek email konfirmasi. |
-| Error saat simpan/upload | Pastikan `supabase/schema.sql` sudah dijalankan (tabel + bucket + RLS). Jalankan ulang bila ragu. |
-| Buka Project URL → `requested path is invalid` | Normal. Itu endpoint API, bukan halaman. Buka app di localhost/URL deploy. |
-| Deep link 404 setelah deploy | Pastikan `vercel.json` / `public/_redirects` ikut ter-deploy. |
+| "Supabase belum dikonfigurasi" | `.env` belum/terisi salah; cek lalu restart `npm run dev`. |
+| Gagal login / "Email not confirmed" | Matikan **Confirm email** di Supabase, atau cek email. |
+| Error simpan/upload, atau fitur baru error | Jalankan ulang `supabase/schema.sql` (kolom/fungsi/bucket terbaru). |
+| Tombol Bagikan tidak muncul/efek | Web Share butuh **HTTPS + HP** (Android Chrome/iOS 15+); di desktop pakai Unduh. |
+| Short link tidak ke-resolve di lokal | Pastikan `npm run dev` (middleware aktif); di produksi via Vercel `/api/resolve`. |
+| Dimensi foto 0×0 di rincian HP | Aktifkan **Metadata iPhone 13** (menulis tag dimensi EXIF). |
 
 ---
 
 ## Struktur kode
 ```
-supabase/schema.sql      DDL + RLS + bucket Storage (paste ke Supabase SQL Editor)
-src/lib/format.ts        Fungsi murni: tanggal, parse link, caption, cek sinkron, tahap
-src/lib/shopee.ts        Parse {shop}/{item}, link bersih, cari duplikat
-src/lib/db.ts            Query Supabase (postings, items, settings)
+supabase/schema.sql      DDL + RLS + bucket Storage + fungsi reserve_item_numbers
+api/resolve.js           Serverless Vercel: resolve short link Shopee
+api/_resolve-core.js     Logika resolve (dipakai juga middleware dev di vite.config.ts)
+src/lib/format.ts        Fungsi murni: tanggal, parse link, caption, cek sinkron, tahap, kode katalog
+src/lib/shopee.ts        Parse {shop}/{item}, link bersih, cari duplikat, expand short link
+src/lib/humanize.ts      Grain + color jitter + EXIF iPhone 13 (piexifjs)
+src/lib/db.ts            Query Supabase + counter atomik + import backup
 src/lib/images.ts        Upload/kompres/hapus gambar ke Storage
 src/lib/supabase.ts      Inisialisasi client
-src/context/             AuthContext (login) + ToastContext (notifikasi)
-src/pages/               LoginPage, DashboardPage, PostingEditorPage (inti), SettingsPage
+src/context/             AuthContext + ToastContext
+src/pages/               LoginPage, DashboardPage, PostingEditorPage, ProductsPage,
+                         CollagePage, SettingsPage
 src/components/          Layout, ProtectedRoute, ItemRow, CopyButton, SyncBadge,
                          StageBadges, ImageGallery
 ```
