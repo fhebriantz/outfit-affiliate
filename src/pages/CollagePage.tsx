@@ -543,12 +543,20 @@ export default function CollagePage() {
     if (fxGrain) humanizeCanvas(ctx, d.w, d.h) // grain + color jitter
     let dataUrl = tmp.toDataURL('image/jpeg', 0.95) // re-encode (selalu buang metadata sumber) + quality 0.95
     if (fxMeta) dataUrl = injectIphoneExif(dataUrl, d.w, d.h) // suntik EXIF iPhone 13
+    // Unduh via Blob (lebih andal di HP daripada data URL besar).
+    const b64 = dataUrl.split(',')[1] ?? ''
+    const bin = atob(b64)
+    const arr = new Uint8Array(bin.length)
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i)
+    const blob = new Blob([arr], { type: 'image/jpeg' })
+    const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = dataUrl
+    a.href = url
     a.download = name
     document.body.appendChild(a)
     a.click()
     a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
   function downloadCurrent() {
     exportCanvas(slide, `slide-${current + 1}.jpg`)
