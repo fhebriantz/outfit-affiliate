@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import PostingEditorPage from './pages/PostingEditorPage'
 import ProductsPage from './pages/ProductsPage'
+import CollagePage from './pages/CollagePage'
 import SettingsPage from './pages/SettingsPage'
 import { isSupabaseConfigured } from './lib/supabase'
 
@@ -60,6 +61,16 @@ export default function App() {
             <ProtectedRoute>
               <Layout>
                 <ProductsPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/collage"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <CollagePage />
               </Layout>
             </ProtectedRoute>
           }

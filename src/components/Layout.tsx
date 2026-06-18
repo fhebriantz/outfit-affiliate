@@ -19,6 +19,13 @@ function IconProduk() {
     </svg>
   )
 }
+function IconCollage() {
+  return (
+    <svg className={ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="12" y1="9" x2="12" y2="21" />
+    </svg>
+  )
+}
 function IconSetting() {
   return (
     <svg className={ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -70,6 +77,9 @@ export default function Layout({ children }: { children: ReactNode }) {
             <NavLink to="/produk" className={navClass}>
               <IconProduk /> Produk
             </NavLink>
+            <NavLink to="/collage" className={navClass}>
+              <IconCollage /> Collage
+            </NavLink>
             <NavLink to="/settings" className={navClass}>
               <IconSetting /> Pengaturan
             </NavLink>
@@ -111,6 +121,9 @@ export default function Layout({ children }: { children: ReactNode }) {
               </NavLink>
               <NavLink to="/produk" className={itemClass} onClick={() => setMenuOpen(false)}>
                 <IconProduk /> Produk
+              </NavLink>
+              <NavLink to="/collage" className={itemClass} onClick={() => setMenuOpen(false)}>
+                <IconCollage /> Collage
               </NavLink>
               <NavLink to="/settings" className={itemClass} onClick={() => setMenuOpen(false)}>
                 <IconSetting /> Pengaturan
