@@ -228,7 +228,8 @@ export default function CollagePage() {
   const [selected, setSelected] = useState(0)
   const [activeLabel, setActiveLabel] = useState<string | null>(null)
   const [pool, setPool] = useState<PoolImage[]>([])
-  const [humanizer, setHumanizer] = useState(false)
+  const [fxGrain, setFxGrain] = useState(false)
+  const [fxMeta, setFxMeta] = useState(false)
 
   const slide = slides[current]
   const dims = slideDims(slide)
@@ -539,9 +540,9 @@ export default function CollagePage() {
     tmp.height = d.h
     const ctx = tmp.getContext('2d')!
     drawSlide(ctx, s, d, { showSel: false, activeCell: -1, activeLabel: null })
-    if (humanizer) humanizeCanvas(ctx, d.w, d.h) // grain + color jitter
-    let dataUrl = tmp.toDataURL('image/jpeg', 0.95) // re-encode (buang metadata) + quality 0.95
-    if (humanizer) dataUrl = injectIphoneExif(dataUrl) // suntik EXIF iPhone 13
+    if (fxGrain) humanizeCanvas(ctx, d.w, d.h) // grain + color jitter
+    let dataUrl = tmp.toDataURL('image/jpeg', 0.95) // re-encode (selalu buang metadata sumber) + quality 0.95
+    if (fxMeta) dataUrl = injectIphoneExif(dataUrl) // suntik EXIF iPhone 13
     const a = document.createElement('a')
     a.href = dataUrl
     a.download = name
@@ -842,19 +843,23 @@ export default function CollagePage() {
         )}
       </div>
 
-      <label className="flex items-start gap-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
-        <input
-          type="checkbox"
-          checked={humanizer}
-          onChange={(e) => setHumanizer(e.target.checked)}
-          className="mt-0.5"
-        />
-        <span>
-          <span className="font-semibold">Humanizer</span> — saat unduh: grain + color jitter halus,
-          buang metadata AI, lalu suntik EXIF <strong>iPhone 13</strong>.{' '}
-          <span className="text-gray-400">Tiap unduh hasilnya sedikit berbeda.</span>
-        </span>
-      </label>
+      <div className="space-y-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+        <p className="text-xs font-semibold text-gray-500">Humanizer (saat unduh)</p>
+        <label className="flex items-start gap-2">
+          <input type="checkbox" checked={fxGrain} onChange={(e) => setFxGrain(e.target.checked)} className="mt-0.5" />
+          <span>
+            <span className="font-semibold">Grain + color jitter</span> — noise & geser warna halus.{' '}
+            <span className="text-gray-400">Tiap unduh sedikit berbeda. Lewati kalau sumber sudah di-humanize.</span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2">
+          <input type="checkbox" checked={fxMeta} onChange={(e) => setFxMeta(e.target.checked)} className="mt-0.5" />
+          <span>
+            <span className="font-semibold">Metadata iPhone 13</span> — suntik EXIF Apple/iPhone 13.{' '}
+            <span className="text-gray-400">Metadata sumber selalu hilang karena re-encode.</span>
+          </span>
+        </label>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <button onClick={downloadCurrent} className="btn-secondary flex-1">
