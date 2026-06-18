@@ -39,6 +39,8 @@ export function iphoneExifBytes(w: number, h: number): string {
     [I.Software]: '16.6',
     [I.DateTime]: dt,
     [I.HostComputer]: 'iPhone 13',
+    [I.ImageWidth]: w,
+    [I.ImageLength]: h,
     [I.Orientation]: 1,
     [I.XResolution]: [72, 1],
     [I.YResolution]: [72, 1],

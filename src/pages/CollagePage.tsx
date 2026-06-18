@@ -559,12 +559,13 @@ export default function CollagePage() {
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
   function downloadCurrent() {
-    exportCanvas(slide, `slide-${current + 1}.jpg`)
+    exportCanvas(slide, `${Date.now()}.jpg`)
     toast('Slide diunduh')
   }
   async function downloadAll() {
+    const base = Date.now()
     for (let i = 0; i < slides.length; i++) {
-      exportCanvas(slides[i], `slide-${i + 1}.jpg`)
+      exportCanvas(slides[i], `${base + i}.jpg`)
       await new Promise((r) => setTimeout(r, 350)) // jeda agar browser tidak blokir multi-unduh
     }
     toast(`${slides.length} slide diunduh`)
