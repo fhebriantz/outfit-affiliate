@@ -713,7 +713,7 @@ export default function CollagePage() {
                 <button
                   onClick={deleteLabel}
                   className="absolute z-10 grid h-6 w-6 place-items-center rounded-full bg-white text-xs font-bold text-red-600 shadow ring-1 ring-gray-200"
-                  style={{ left: Math.min(dispW - 24, rx + rw + 6), top: Math.max(0, ry) }}
+                  style={{ left: Math.min(dispW - 24, rx + rw + 6), top: Math.max(0, ry - 30) }}
                   title="Hapus teks"
                 >
                   ✕
@@ -722,7 +722,7 @@ export default function CollagePage() {
                 <button
                   onClick={duplicateLabel}
                   className="absolute z-10 grid h-6 w-6 place-items-center rounded-full bg-white text-sec-700 shadow ring-1 ring-gray-200"
-                  style={{ left: Math.min(dispW - 24, rx + rw + 6), top: ry + rh - 24 }}
+                  style={{ left: Math.min(dispW - 24, rx + rw + 6), top: ry + rh + 6 }}
                   title="Duplikat teks"
                 >
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
