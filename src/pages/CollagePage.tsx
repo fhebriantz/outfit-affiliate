@@ -380,6 +380,8 @@ export default function CollagePage() {
     }))
     setActiveLabel(id)
     setEditing(true)
+    // Scroll ke gambar supaya teks baru langsung terlihat (tombol tambah ada di bawah).
+    setTimeout(() => canvasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
   }
   function updateLabel(patch: Partial<Label>) {
     if (!activeLabel) return
