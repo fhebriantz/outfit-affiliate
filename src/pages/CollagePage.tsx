@@ -1,15 +1,37 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 
-// Output 3:4 (potret) — cocok untuk cover TikTok.
-const OUT_W = 900
-const OUT_H = 1200
 const GAP = 10 // jarak antar sel (px di canvas)
+
+type Ratio = { key: string; label: string; w: number; h: number }
+const RATIOS: Ratio[] = [
+  { key: '3:4', label: '3:4', w: 900, h: 1200 },
+  { key: '1:1', label: '1:1', w: 1080, h: 1080 },
+  { key: '9:16', label: '9:16', w: 900, h: 1600 },
+  { key: '4:6', label: '4:6', w: 800, h: 1200 },
+]
 
 type Cell = { x: number; y: number; w: number; h: number } // fraksi 0..1
 type Layout = { key: string; label: string; cells: Cell[] }
 
 const LAYOUTS: Layout[] = [
+  { key: 'full', label: '1 gambar', cells: [{ x: 0, y: 0, w: 1, h: 1 }] },
+  {
+    key: 'rows2',
+    label: '2 baris',
+    cells: [
+      { x: 0, y: 0, w: 1, h: 0.5 },
+      { x: 0, y: 0.5, w: 1, h: 0.5 },
+    ],
+  },
+  {
+    key: 'cols2',
+    label: '2 kolom',
+    cells: [
+      { x: 0, y: 0, w: 0.5, h: 1 },
+      { x: 0.5, y: 0, w: 0.5, h: 1 },
+    ],
+  },
   {
     key: 'rows3',
     label: '3 baris',
@@ -46,6 +68,26 @@ const LAYOUTS: Layout[] = [
       { x: 0, y: 0.4, w: 1, h: 0.6 },
     ],
   },
+  {
+    key: 'grid4',
+    label: '4 kotak',
+    cells: [
+      { x: 0, y: 0, w: 0.5, h: 0.5 },
+      { x: 0.5, y: 0, w: 0.5, h: 0.5 },
+      { x: 0, y: 0.5, w: 0.5, h: 0.5 },
+      { x: 0.5, y: 0.5, w: 0.5, h: 0.5 },
+    ],
+  },
+  {
+    key: 'rows4',
+    label: '4 baris',
+    cells: [
+      { x: 0, y: 0, w: 1, h: 0.25 },
+      { x: 0, y: 0.25, w: 1, h: 0.25 },
+      { x: 0, y: 0.5, w: 1, h: 0.25 },
+      { x: 0, y: 0.75, w: 1, h: 0.25 },
+    ],
+  },
 ]
 
 interface Slot {
@@ -54,29 +96,44 @@ interface Slot {
   offsetX: number
   offsetY: number
 }
-
 const emptySlot = (): Slot => ({ img: null, scale: 1, offsetX: 0, offsetY: 0 })
-
-// Sel dalam piksel canvas (dengan gap).
-function cellPx(c: Cell): Cell {
-  return {
-    x: c.x * OUT_W + GAP / 2,
-    y: c.y * OUT_H + GAP / 2,
-    w: c.w * OUT_W - GAP,
-    h: c.h * OUT_H - GAP,
-  }
-}
 
 export default function CollagePage() {
   const { toast } = useToast()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [ratioKey, setRatioKey] = useState('3:4')
   const [layoutKey, setLayoutKey] = useState('rows3')
   const [slots, setSlots] = useState<Slot[]>([emptySlot(), emptySlot(), emptySlot()])
   const [selected, setSelected] = useState(0)
   const drag = useRef<{ active: boolean; x: number; y: number } | null>(null)
 
+  const ratio = RATIOS.find((r) => r.key === ratioKey) ?? RATIOS[0]
   const layout = LAYOUTS.find((l) => l.key === layoutKey) ?? LAYOUTS[0]
+  const OUT_W = ratio.w
+  const OUT_H = ratio.h
+
+  // Samakan jumlah slot dengan jumlah sel di layout.
+  useEffect(() => {
+    setSlots((prev) => {
+      const n = layout.cells.length
+      if (prev.length === n) return prev
+      const next = prev.slice(0, n)
+      while (next.length < n) next.push(emptySlot())
+      return next
+    })
+    setSelected((s) => Math.min(Math.max(s, 0), layout.cells.length - 1))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layoutKey])
+
+  function cellPx(c: Cell): Cell {
+    return {
+      x: c.x * OUT_W + GAP / 2,
+      y: c.y * OUT_H + GAP / 2,
+      w: c.w * OUT_W - GAP,
+      h: c.h * OUT_H - GAP,
+    }
+  }
 
   function draw(showSel = true) {
     const canvas = canvasRef.current
@@ -110,7 +167,6 @@ export default function CollagePage() {
         ctx.fillText(String(i + 1), px.x + px.w / 2, px.y + px.h / 2)
       }
       ctx.restore()
-      // garis sel terpilih
       if (showSel && i === selected) {
         ctx.strokeStyle = '#ee4d2d'
         ctx.lineWidth = 6
@@ -122,7 +178,7 @@ export default function CollagePage() {
   useEffect(() => {
     draw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slots, layoutKey, selected])
+  }, [slots, layoutKey, ratioKey, selected])
 
   function canvasPoint(e: React.PointerEvent) {
     const canvas = canvasRef.current!
@@ -135,7 +191,6 @@ export default function CollagePage() {
 
   function onPointerDown(e: React.PointerEvent) {
     const pt = canvasPoint(e)
-    // sel mana yang diklik
     const idx = layout.cells.findIndex((c) => {
       const px = cellPx(c)
       return pt.x >= px.x && pt.x <= px.x + px.w && pt.y >= px.y && pt.y <= px.y + px.h
@@ -163,19 +218,14 @@ export default function CollagePage() {
     if (drag.current) drag.current.active = false
   }
 
-  function pickImage() {
-    fileRef.current?.click()
-  }
-
   function onFile(file: File | undefined) {
-    if (!file) return
+    if (!file || selected < 0) return
     const url = URL.createObjectURL(file)
     const img = new Image()
-    img.onload = () => {
+    img.onload = () =>
       setSlots((prev) =>
         prev.map((s, i) => (i === selected ? { img, scale: 1, offsetX: 0, offsetY: 0 } : s)),
       )
-    }
     img.onerror = () => toast('Gagal memuat gambar', 'err')
     img.src = url
   }
@@ -183,9 +233,10 @@ export default function CollagePage() {
   function setScale(v: number) {
     setSlots((prev) => prev.map((s, i) => (i === selected ? { ...s, scale: v } : s)))
   }
-
   function resetSlot() {
-    setSlots((prev) => prev.map((s, i) => (i === selected ? { ...s, scale: 1, offsetX: 0, offsetY: 0 } : s)))
+    setSlots((prev) =>
+      prev.map((s, i) => (i === selected ? { ...s, scale: 1, offsetX: 0, offsetY: 0 } : s)),
+    )
   }
 
   function download() {
@@ -195,7 +246,7 @@ export default function CollagePage() {
       toast('Belum ada gambar', 'err')
       return
     }
-    draw(false) // render tanpa garis seleksi
+    draw(false)
     canvas.toBlob(
       (blob) => {
         if (!blob) {
@@ -205,12 +256,12 @@ export default function CollagePage() {
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = 'collage.jpg'
+        a.download = `collage-${ratio.key.replace(':', 'x')}.jpg`
         document.body.appendChild(a)
         a.click()
         a.remove()
         URL.revokeObjectURL(url)
-        draw(true) // pulihkan tampilan
+        draw(true)
         toast('Collage diunduh')
       },
       'image/jpeg',
@@ -218,30 +269,40 @@ export default function CollagePage() {
     )
   }
 
+  const chip = (active: boolean) =>
+    'rounded-full px-3 py-1.5 text-sm font-medium transition ' +
+    (active
+      ? 'bg-brand-600 text-white'
+      : 'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50')
+
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold text-gray-900">Collage 3:4</h1>
+      <h1 className="text-xl font-bold text-gray-900">Collage</h1>
       <p className="text-sm text-gray-500">
-        Gabung 3 gambar jadi 1 (rasio 3:4 untuk cover TikTok). Pilih sel → masukkan gambar → geser
-        (drag) & atur zoom. Lalu unduh.
+        Gabung beberapa gambar jadi 1. Pilih rasio &amp; layout, tap sel → masukkan gambar → geser
+        (drag) &amp; atur zoom, lalu unduh.
       </p>
 
-      {/* Pilihan layout */}
-      <div className="flex flex-wrap gap-2">
-        {LAYOUTS.map((l) => (
-          <button
-            key={l.key}
-            onClick={() => setLayoutKey(l.key)}
-            className={
-              'rounded-full px-3 py-1.5 text-sm font-medium transition ' +
-              (layoutKey === l.key
-                ? 'bg-brand-600 text-white'
-                : 'bg-white text-gray-600 ring-1 ring-inset ring-gray-200 hover:bg-gray-50')
-            }
-          >
-            {l.label}
-          </button>
-        ))}
+      <div>
+        <label className="label">Rasio</label>
+        <div className="flex flex-wrap gap-2">
+          {RATIOS.map((r) => (
+            <button key={r.key} onClick={() => setRatioKey(r.key)} className={chip(ratioKey === r.key)}>
+              {r.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Layout</label>
+        <div className="flex flex-wrap gap-2">
+          {LAYOUTS.map((l) => (
+            <button key={l.key} onClick={() => setLayoutKey(l.key)} className={chip(layoutKey === l.key)}>
+              {l.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <canvas
@@ -251,8 +312,8 @@ export default function CollagePage() {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        className="mx-auto block w-full max-w-[320px] touch-none rounded-xl bg-white shadow ring-1 ring-gray-200"
-        style={{ aspectRatio: '3 / 4' }}
+        className="mx-auto block max-h-[60vh] max-w-full touch-none rounded-xl bg-white shadow ring-1 ring-gray-200"
+        style={{ aspectRatio: `${OUT_W} / ${OUT_H}` }}
       />
 
       <input
@@ -263,11 +324,10 @@ export default function CollagePage() {
         onChange={(e) => onFile(e.target.files?.[0])}
       />
 
-      {/* Kontrol sel terpilih */}
       <div className="card space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-gray-700">Sel {selected >= 0 ? selected + 1 : '-'}</span>
-          {[0, 1, 2].map((i) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-gray-700">Sel:</span>
+          {layout.cells.map((_, i) => (
             <button
               key={i}
               onClick={() => setSelected(i)}
@@ -281,7 +341,7 @@ export default function CollagePage() {
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={pickImage} className="btn-secondary" disabled={selected < 0}>
+          <button onClick={() => fileRef.current?.click()} className="btn-secondary" disabled={selected < 0}>
             {slots[selected]?.img ? 'Ganti gambar' : 'Masukkan gambar'}
           </button>
           <button onClick={resetSlot} className="btn-ghost" disabled={!slots[selected]?.img}>
