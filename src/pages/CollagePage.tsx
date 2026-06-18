@@ -268,9 +268,21 @@ export default function CollagePage() {
     return () => ro.disconnect()
   }, [])
 
-  // Fokuskan editor inline saat mulai mengedit.
+  // Fokus ke editor inline + taruh kursor di akhir teks (biar langsung lanjut ketik).
+  function focusInlineEnd() {
+    const el = inlineRef.current
+    if (!el) return
+    el.focus()
+    const len = el.value.length
+    try {
+      el.setSelectionRange(len, len)
+    } catch {
+      /* abaikan */
+    }
+  }
   useEffect(() => {
-    if (editing) setTimeout(() => inlineRef.current?.focus(), 0)
+    if (editing) setTimeout(focusInlineEnd, 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, activeLabel])
 
   // ---------- Slide ----------
@@ -505,7 +517,7 @@ export default function CollagePage() {
     // Tap (tanpa geser) pada teks yang sudah terpilih -> mulai edit + buka keyboard (dalam gesture).
     if (d && d.mode === 'label' && !d.moved && d.wasActive) {
       setEditing(true)
-      inlineRef.current?.focus()
+      focusInlineEnd()
     }
   }
 
