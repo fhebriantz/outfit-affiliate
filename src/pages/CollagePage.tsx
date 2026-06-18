@@ -703,20 +703,20 @@ export default function CollagePage() {
                     <line x1="12" y1="2" x2="12" y2="22" />
                   </svg>
                 </button>
-                {/* Hapus (kanan atas, di luar border) */}
+                {/* Hapus (pojok kanan ATAS, di luar border) */}
                 <button
                   onClick={deleteLabel}
-                  className="absolute z-10 grid h-5 w-5 place-items-center rounded-full bg-white text-xs font-bold text-red-600 shadow ring-1 ring-gray-200"
-                  style={{ left: rx + rw - 20, top: Math.max(0, ry - 20 - 8) }}
+                  className="absolute z-10 grid h-6 w-6 place-items-center rounded-full bg-white text-xs font-bold text-red-600 shadow ring-1 ring-gray-200"
+                  style={{ left: Math.min(dispW - 24, rx + rw + 6), top: Math.max(0, ry) }}
                   title="Hapus teks"
                 >
                   ✕
                 </button>
-                {/* Duplikat (kanan bawah, di luar border) */}
+                {/* Duplikat (pojok kanan BAWAH, di luar border) */}
                 <button
                   onClick={duplicateLabel}
                   className="absolute z-10 grid h-6 w-6 place-items-center rounded-full bg-white text-sec-700 shadow ring-1 ring-gray-200"
-                  style={{ left: rx + rw - 24, top: ry + rh + 8 }}
+                  style={{ left: Math.min(dispW - 24, rx + rw + 6), top: ry + rh - 24 }}
                   title="Duplikat teks"
                 >
                   <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
