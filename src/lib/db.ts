@@ -98,6 +98,59 @@ export async function deleteItem(id: string): Promise<void> {
   if (error) throw error
 }
 
+/**
+ * Restore data dari hasil export JSON ke akun user saat ini.
+ * Membuat postingan & item BARU (id baru) — tidak menimpa data yang ada.
+ * Gambar (file) tidak ikut karena tersimpan di Storage, bukan di JSON.
+ */
+export async function importBackup(
+  userId: string,
+  postings: Partial<Posting>[],
+  items: Partial<Item>[],
+): Promise<{ postings: number; items: number }> {
+  const today = new Date().toISOString().slice(0, 10)
+  const idMap: Record<string, string> = {} // old posting id -> new id
+  let postingCount = 0
+  for (const p of postings) {
+    const created = await createPosting(userId, {
+      tanggal: p.tanggal || today,
+      label: p.label ?? null,
+      ref_nama: p.ref_nama ?? null,
+      ref_url: p.ref_url ?? null,
+      ref_tanggal: p.ref_tanggal ?? null,
+      caption_hashtags: p.caption_hashtags ?? null,
+      catatan: p.catatan ?? null,
+      drive_url: p.drive_url ?? null,
+      status: p.status ?? 'draft',
+      archived_at: p.archived_at ?? null,
+    })
+    if (p.id) idMap[p.id] = created.id
+    postingCount++
+  }
+
+  const itemRows = items
+    .filter((it) => it.posting_id && idMap[it.posting_id])
+    .map((it) => ({
+      user_id: userId,
+      posting_id: idMap[it.posting_id as string],
+      urutan: it.urutan ?? 1,
+      my_number: it.my_number ?? 1,
+      kategori: it.kategori ?? null,
+      ref_code: it.ref_code ?? null,
+      source_link: it.source_link ?? null,
+      affiliate_link: it.affiliate_link ?? null,
+    }))
+  // Insert per-batch agar tidak terlalu besar sekali kirim.
+  let itemCount = 0
+  for (let i = 0; i < itemRows.length; i += 200) {
+    const chunk = itemRows.slice(i, i + 200)
+    const { error } = await supabase.from('items').insert(chunk)
+    if (error) throw error
+    itemCount += chunk.length
+  }
+  return { postings: postingCount, items: itemCount }
+}
+
 // ---------- Settings ----------
 export async function getSettings(userId: string): Promise<Settings> {
   const { data, error } = await supabase.from('settings').select('*').eq('user_id', userId).maybeSingle()

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { getSettings, listAllItems, listPostings, saveSettings } from '../lib/db'
+import { getSettings, importBackup, listAllItems, listPostings, saveSettings } from '../lib/db'
 import { listAllImages } from '../lib/images'
 import { formatItemCode, parseItemCode } from '../lib/format'
 
@@ -17,6 +17,8 @@ export default function SettingsPage() {
   const [savingNum, setSavingNum] = useState(false)
   const [savingFolder, setSavingFolder] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const importRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!user) return
@@ -115,6 +117,34 @@ export default function SettingsPage() {
     }
   }
 
+  async function importData(file: File) {
+    if (!user) return
+    setImporting(true)
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      const postings = Array.isArray(data?.postings) ? data.postings : null
+      const items = Array.isArray(data?.items) ? data.items : []
+      if (!postings) {
+        toast('File tidak valid (tidak ada data postingan)', 'err')
+        return
+      }
+      if (
+        !confirm(
+          `Import akan MENAMBAHKAN ${postings.length} postingan & ${items.length} item ke akunmu (data lama tidak dihapus). Gambar tidak ikut. Lanjut?`,
+        )
+      )
+        return
+      const res = await importBackup(user.id, postings, items)
+      toast(`Berhasil import ${res.postings} postingan & ${res.items} item`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal import (file rusak?)', 'err')
+    } finally {
+      setImporting(false)
+      if (importRef.current) importRef.current.value = ''
+    }
+  }
+
   if (loading) return <p className="py-12 text-center text-gray-400">Memuat…</p>
 
   return (
@@ -205,13 +235,32 @@ export default function SettingsPage() {
         <div>
           <h2 className="font-bold text-gray-900">Backup data</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Unduh semua postingan, item, &amp; daftar gambar jadi satu file JSON. Simpan sebagai
-            cadangan (Supabase free tier bisa auto-pause kalau lama nganggur).
+            Export = unduh semua postingan & item jadi file JSON. Import = kembalikan data dari file
+            JSON (menambah, tidak menimpa). Gambar tidak ikut (file ada di Storage).
           </p>
         </div>
-        <button onClick={exportData} disabled={exporting} className="btn-secondary">
-          {exporting ? 'Menyiapkan…' : 'Export ke JSON'}
-        </button>
+        <input
+          ref={importRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) importData(f)
+          }}
+        />
+        <div className="flex flex-wrap gap-2">
+          <button onClick={exportData} disabled={exporting} className="btn-secondary">
+            {exporting ? 'Menyiapkan…' : 'Export ke JSON'}
+          </button>
+          <button
+            onClick={() => importRef.current?.click()}
+            disabled={importing}
+            className="btn-secondary"
+          >
+            {importing ? 'Mengimpor…' : 'Import dari JSON'}
+          </button>
+        </div>
       </div>
     </div>
   )
