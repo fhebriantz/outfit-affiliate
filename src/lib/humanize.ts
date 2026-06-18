@@ -3,7 +3,38 @@
 // Tujuannya memperturbasi pola halus agar fingerprint AI di piksel berkurang.
 // Re-encode kanvas (toBlob) juga otomatis membuang metadata EXIF/AI.
 
+import piexif from 'piexifjs'
+
 const GRAIN_INTENSITY = 0.03
+
+/** Bytes EXIF "iPhone 13" untuk disisipkan ke JPEG (meniru metadata batch_humanizer). */
+export function iphoneExifBytes(): string {
+  const n = new Date()
+  const p = (x: number) => String(x).padStart(2, '0')
+  const dt = `${n.getFullYear()}:${p(n.getMonth() + 1)}:${p(n.getDate())} ${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`
+  const zeroth: Record<number, unknown> = {
+    [piexif.ImageIFD.Make]: 'Apple',
+    [piexif.ImageIFD.Model]: 'iPhone 13',
+    [piexif.ImageIFD.Software]: '16.6',
+    [piexif.ImageIFD.DateTime]: dt,
+  }
+  const exif: Record<number, unknown> = {
+    [piexif.ExifIFD.DateTimeOriginal]: dt,
+    [piexif.ExifIFD.DateTimeDigitized]: dt,
+    [piexif.ExifIFD.LensMake]: 'Apple',
+    [piexif.ExifIFD.LensModel]: 'iPhone 13 back dual wide camera 5.1mm f/1.6',
+  }
+  return piexif.dump({ '0th': zeroth, Exif: exif, GPS: {}, '1st': {}, thumbnail: null })
+}
+
+/** Sisipkan EXIF iPhone 13 ke data URL JPEG. Kalau gagal, kembalikan apa adanya. */
+export function injectIphoneExif(jpegDataUrl: string): string {
+  try {
+    return piexif.insert(iphoneExifBytes(), jpegDataUrl)
+  } catch {
+    return jpegDataUrl
+  }
+}
 
 function rnd(min: number, max: number) {
   return min + Math.random() * (max - min)

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../context/ToastContext'
-import { humanizeCanvas } from '../lib/humanize'
+import { humanizeCanvas, injectIphoneExif } from '../lib/humanize'
 
 const GAP_ON = 14
 const MAX_ZOOM = 4
@@ -532,33 +532,22 @@ export default function CollagePage() {
   }
 
   // ---------- Unduh ----------
-  function exportCanvas(s: Slide, name: string): Promise<void> {
+  function exportCanvas(s: Slide, name: string) {
     const d = slideDims(s)
     const tmp = document.createElement('canvas')
     tmp.width = d.w
     tmp.height = d.h
     const ctx = tmp.getContext('2d')!
     drawSlide(ctx, s, d, { showSel: false, activeCell: -1, activeLabel: null })
-    if (humanizer) humanizeCanvas(ctx, d.w, d.h) // grain + color jitter + scrub metadata (via re-encode)
-    return new Promise((resolve) => {
-      tmp.toBlob(
-        (blob) => {
-          if (blob) {
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = name
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
-            URL.revokeObjectURL(url)
-          }
-          resolve()
-        },
-        'image/jpeg',
-        0.92,
-      )
-    })
+    if (humanizer) humanizeCanvas(ctx, d.w, d.h) // grain + color jitter
+    let dataUrl = tmp.toDataURL('image/jpeg', 0.95) // re-encode (buang metadata) + quality 0.95
+    if (humanizer) dataUrl = injectIphoneExif(dataUrl) // suntik EXIF iPhone 13
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = name
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
   }
   async function downloadCurrent() {
     await exportCanvas(slide, `slide-${current + 1}.jpg`)
@@ -861,8 +850,8 @@ export default function CollagePage() {
           className="mt-0.5"
         />
         <span>
-          <span className="font-semibold">Humanizer</span> — saat unduh, tambahkan grain + color jitter
-          halus & buang metadata untuk mengurangi fingerprint AI.{' '}
+          <span className="font-semibold">Humanizer</span> — saat unduh: grain + color jitter halus,
+          buang metadata AI, lalu suntik EXIF <strong>iPhone 13</strong>.{' '}
           <span className="text-gray-400">Tiap unduh hasilnya sedikit berbeda.</span>
         </span>
       </label>
