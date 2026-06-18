@@ -98,6 +98,17 @@ interface Slot {
 }
 const emptySlot = (): Slot => ({ img: null, scale: 1, offsetX: 0, offsetY: 0 })
 
+// Layer teks (penunjuk nomor / judul cover). Posisi x,y dalam fraksi 0..1.
+interface Label {
+  id: string
+  text: string
+  x: number
+  y: number
+  size: number // px relatif canvas
+  color: 'white' | 'black'
+}
+const DEFAULT_LABEL_TEXT = '•-----A '
+
 export default function CollagePage() {
   const { toast } = useToast()
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -107,7 +118,11 @@ export default function CollagePage() {
   const [showGap, setShowGap] = useState(false)
   const [slots, setSlots] = useState<Slot[]>([emptySlot(), emptySlot(), emptySlot()])
   const [selected, setSelected] = useState(0)
-  const drag = useRef<{ active: boolean; x: number; y: number } | null>(null)
+  const [labels, setLabels] = useState<Label[]>([])
+  const [activeLabel, setActiveLabel] = useState<string | null>(null)
+  const labelRects = useRef<Record<string, { x: number; y: number; w: number; h: number }>>({})
+  const idRef = useRef(0)
+  const drag = useRef<{ mode: 'cell' | 'label'; id?: string; x: number; y: number } | null>(null)
 
   const ratio = RATIOS.find((r) => r.key === ratioKey) ?? RATIOS[0]
   const layout = LAYOUTS.find((l) => l.key === layoutKey) ?? LAYOUTS[0]
@@ -169,18 +184,57 @@ export default function CollagePage() {
         ctx.fillText(String(i + 1), px.x + px.w / 2, px.y + px.h / 2)
       }
       ctx.restore()
-      if (showSel && i === selected) {
+      if (showSel && i === selected && activeLabel === null) {
         ctx.strokeStyle = '#ee4d2d'
         ctx.lineWidth = 6
         ctx.strokeRect(px.x + 3, px.y + 3, px.w - 6, px.h - 6)
       }
     })
+
+    // Layer teks (di atas semua gambar)
+    labelRects.current = {}
+    for (const l of labels) {
+      const px = l.x * OUT_W
+      const py = l.y * OUT_H
+      ctx.font = `bold ${l.size}px sans-serif`
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'middle'
+      const lines = l.text.split('\n')
+      const lineH = l.size * 1.2
+      let maxW = 0
+      lines.forEach((ln) => (maxW = Math.max(maxW, ctx.measureText(ln).width)))
+      // outline biar kebaca di gambar apa pun
+      ctx.lineWidth = Math.max(3, l.size * 0.14)
+      ctx.lineJoin = 'round'
+      ctx.strokeStyle = l.color === 'white' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.8)'
+      ctx.fillStyle = l.color === 'white' ? '#ffffff' : '#111111'
+      lines.forEach((ln, li) => {
+        const ly = py + li * lineH
+        ctx.strokeText(ln, px, ly)
+        ctx.fillText(ln, px, ly)
+      })
+      const totalH = lineH * lines.length
+      labelRects.current[l.id] = {
+        x: px - 8,
+        y: py - l.size / 2 - 6,
+        w: Math.max(maxW, 24) + 16,
+        h: totalH + 12,
+      }
+      if (showSel && l.id === activeLabel) {
+        const r = labelRects.current[l.id]
+        ctx.strokeStyle = '#ee4d2d'
+        ctx.lineWidth = 3
+        ctx.setLineDash([8, 6])
+        ctx.strokeRect(r.x, r.y, r.w, r.h)
+        ctx.setLineDash([])
+      }
+    }
   }
 
   useEffect(() => {
     draw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slots, layoutKey, ratioKey, selected, showGap])
+  }, [slots, layoutKey, ratioKey, selected, showGap, labels, activeLabel])
 
   function canvasPoint(e: React.PointerEvent) {
     const canvas = canvasRef.current!
@@ -193,31 +247,69 @@ export default function CollagePage() {
 
   function onPointerDown(e: React.PointerEvent) {
     const pt = canvasPoint(e)
+    ;(e.target as Element).setPointerCapture?.(e.pointerId)
+    // Cek layer teks dulu (paling atas).
+    for (let i = labels.length - 1; i >= 0; i--) {
+      const r = labelRects.current[labels[i].id]
+      if (r && pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h) {
+        setActiveLabel(labels[i].id)
+        drag.current = { mode: 'label', id: labels[i].id, x: pt.x, y: pt.y }
+        return
+      }
+    }
+    // Kalau bukan teks -> sel gambar.
+    setActiveLabel(null)
     const idx = layout.cells.findIndex((c) => {
       const px = cellPx(c)
       return pt.x >= px.x && pt.x <= px.x + px.w && pt.y >= px.y && pt.y <= px.y + px.h
     })
     if (idx >= 0) setSelected(idx)
-    drag.current = { active: idx >= 0 && !!slots[idx]?.img, x: pt.x, y: pt.y }
-    ;(e.target as Element).setPointerCapture?.(e.pointerId)
+    drag.current = { mode: 'cell', x: pt.x, y: pt.y }
   }
 
   function onPointerMove(e: React.PointerEvent) {
-    if (!drag.current?.active) return
+    if (!drag.current) return
     const pt = canvasPoint(e)
     const dx = pt.x - drag.current.x
     const dy = pt.y - drag.current.y
     drag.current.x = pt.x
     drag.current.y = pt.y
-    setSlots((prev) =>
-      prev.map((s, i) =>
-        i === selected ? { ...s, offsetX: s.offsetX + dx, offsetY: s.offsetY + dy } : s,
-      ),
-    )
+    if (drag.current.mode === 'label') {
+      const id = drag.current.id
+      setLabels((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, x: l.x + dx / OUT_W, y: l.y + dy / OUT_H } : l)),
+      )
+    } else if (slots[selected]?.img) {
+      setSlots((prev) =>
+        prev.map((s, i) =>
+          i === selected ? { ...s, offsetX: s.offsetX + dx, offsetY: s.offsetY + dy } : s,
+        ),
+      )
+    }
   }
 
   function onPointerUp() {
-    if (drag.current) drag.current.active = false
+    drag.current = null
+  }
+
+  // ---------- Layer teks ----------
+  const activeLabelObj = labels.find((l) => l.id === activeLabel) ?? null
+  function addLabel() {
+    const id = String(++idRef.current)
+    setLabels((prev) => [
+      ...prev,
+      { id, text: DEFAULT_LABEL_TEXT, x: 0.12, y: 0.5, size: Math.round(OUT_W * 0.05), color: 'white' },
+    ])
+    setActiveLabel(id)
+  }
+  function updateLabel(patch: Partial<Label>) {
+    if (!activeLabel) return
+    setLabels((prev) => prev.map((l) => (l.id === activeLabel ? { ...l, ...patch } : l)))
+  }
+  function deleteLabel() {
+    if (!activeLabel) return
+    setLabels((prev) => prev.filter((l) => l.id !== activeLabel))
+    setActiveLabel(null)
   }
 
   function onFile(file: File | undefined) {
@@ -244,8 +336,8 @@ export default function CollagePage() {
   function download() {
     const canvas = canvasRef.current
     if (!canvas) return
-    if (!slots.some((s) => s.img)) {
-      toast('Belum ada gambar', 'err')
+    if (!slots.some((s) => s.img) && labels.length === 0) {
+      toast('Belum ada gambar/teks', 'err')
       return
     }
     draw(false)
@@ -371,6 +463,61 @@ export default function CollagePage() {
             className="w-full accent-brand-600"
           />
         </div>
+      </div>
+
+      {/* Layer teks */}
+      <div className="card space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-gray-900">Teks ({labels.length})</h2>
+          <button onClick={addLabel} className="btn-secondary">
+            + Tambah teks
+          </button>
+        </div>
+        <p className="text-xs text-gray-400">
+          Default <code>•-----A </code> untuk penunjuk nomor (tinggal ketik nomornya), atau hapus &
+          ganti untuk judul cover. Tap teks di gambar untuk pilih, lalu geser.
+        </p>
+        {activeLabelObj ? (
+          <div className="space-y-3">
+            <textarea
+              className="input min-h-[60px]"
+              value={activeLabelObj.text}
+              onChange={(e) => updateLabel({ text: e.target.value })}
+              placeholder={'•-----A 120  atau  ootd kampus\n>>>>'}
+            />
+            <div>
+              <label className="label">Ukuran</label>
+              <input
+                type="range"
+                min={Math.round(OUT_W * 0.025)}
+                max={Math.round(OUT_W * 0.18)}
+                value={activeLabelObj.size}
+                onChange={(e) => updateLabel({ size: Number(e.target.value) })}
+                className="w-full accent-brand-600"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="label !mb-0">Warna:</span>
+              <button
+                onClick={() => updateLabel({ color: 'white' })}
+                className={chip(activeLabelObj.color === 'white')}
+              >
+                Putih
+              </button>
+              <button
+                onClick={() => updateLabel({ color: 'black' })}
+                className={chip(activeLabelObj.color === 'black')}
+              >
+                Hitam
+              </button>
+              <button onClick={deleteLabel} className="btn-ghost ml-auto text-red-600">
+                Hapus
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-gray-400">Belum ada teks dipilih. Tambah atau tap teks di gambar.</p>
+        )}
       </div>
 
       <button onClick={download} className="btn-primary w-full">
