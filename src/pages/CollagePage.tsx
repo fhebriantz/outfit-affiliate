@@ -218,6 +218,7 @@ export default function CollagePage() {
     sy: number
     moved: boolean
     wasActive?: boolean
+    cellEmpty?: boolean
   } | null>(null)
   const nid = () => String(idRef.current++)
 
@@ -478,7 +479,8 @@ export default function CollagePage() {
       return pt.x >= px.x && pt.x <= px.x + px.w && pt.y >= px.y && pt.y <= px.y + px.h
     })
     if (idx >= 0) setSelected(idx)
-    drag.current = { mode: 'cell', x: pt.x, y: pt.y, sx: pt.x, sy: pt.y, moved: false }
+    const cellEmpty = idx >= 0 && !slide.slots[idx]?.img
+    drag.current = { mode: 'cell', x: pt.x, y: pt.y, sx: pt.x, sy: pt.y, moved: false, cellEmpty }
   }
   function onPointerMove(e: React.PointerEvent) {
     if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -520,6 +522,10 @@ export default function CollagePage() {
     if (d && d.mode === 'label' && !d.moved && d.wasActive) {
       setEditing(true)
       focusInlineEnd()
+    }
+    // Tap pada sel KOSONG -> langsung buka pilih gambar.
+    if (d && d.mode === 'cell' && !d.moved && d.cellEmpty) {
+      fileRef.current?.click()
     }
   }
 
