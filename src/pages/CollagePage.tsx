@@ -321,7 +321,10 @@ export default function CollagePage() {
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => onFile(e.target.files?.[0])}
+        onChange={(e) => {
+          onFile(e.target.files?.[0])
+          e.target.value = '' // reset biar file yang SAMA bisa dipilih lagi di sel lain
+        }}
       />
 
       <div className="card space-y-3">
