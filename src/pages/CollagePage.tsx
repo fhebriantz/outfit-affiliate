@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 
 const GAP_ON = 14
+const MAX_ZOOM = 4
 
 type Ratio = { key: string; label: string; w: number; h: number }
 const RATIOS: Ratio[] = [
@@ -201,6 +202,9 @@ export default function CollagePage() {
   const labelRects = useRef<Record<string, { x: number; y: number; w: number; h: number }>>({})
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const inlineRef = useRef<HTMLTextAreaElement>(null)
+  const measureCtx = useRef<CanvasRenderingContext2D | null>(null)
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const pinch = useRef<{ dist: number; scale: number } | null>(null)
   const idRef = useRef(1)
   const [editing, setEditing] = useState(false)
   const [dispW, setDispW] = useState(0)
@@ -374,6 +378,25 @@ export default function CollagePage() {
     setActiveLabel(null)
     setEditing(false)
   }
+  function duplicateLabel() {
+    if (!activeLabelObj) return
+    const id = nid()
+    const src = activeLabelObj
+    patchSlide((s) => ({ ...s, labels: [...s.labels, { ...src, id, y: Math.min(0.95, src.y + 0.06) }] }))
+    setActiveLabel(id)
+    setEditing(false)
+  }
+  // Ukur kotak label (koordinat canvas) untuk posisikan tombol aksi.
+  function measureLabelRect(l: Label) {
+    if (!measureCtx.current) measureCtx.current = document.createElement('canvas').getContext('2d')
+    const ctx = measureCtx.current!
+    ctx.font = `bold ${l.size}px sans-serif`
+    const lines = l.text.split('\n')
+    const lineH = l.size * 1.2
+    let maxW = 0
+    lines.forEach((ln) => (maxW = Math.max(maxW, ctx.measureText(ln).width)))
+    return { x: l.x * OUT_W - 8, y: l.y * OUT_H - l.size / 2 - 6, w: Math.max(maxW, 24) + 16, h: lineH * lines.length + 12 }
+  }
 
   // ---------- Pointer ----------
   function canvasPoint(e: React.PointerEvent) {
@@ -384,8 +407,21 @@ export default function CollagePage() {
     }
   }
   function onPointerDown(e: React.PointerEvent) {
-    const pt = canvasPoint(e)
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     ;(e.target as Element).setPointerCapture?.(e.pointerId)
+    // Dua jari -> pinch zoom gambar sel terpilih.
+    if (pointers.current.size >= 2) {
+      if (slide.slots[selected]?.img) {
+        const pts = [...pointers.current.values()]
+        pinch.current = {
+          dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+          scale: slide.slots[selected].scale,
+        }
+      }
+      drag.current = null
+      return
+    }
+    const pt = canvasPoint(e)
     for (let i = slide.labels.length - 1; i >= 0; i--) {
       const lab = slide.labels[i]
       const r = labelRects.current[lab.id]
@@ -407,6 +443,14 @@ export default function CollagePage() {
     drag.current = { mode: 'cell', x: pt.x, y: pt.y, sx: pt.x, sy: pt.y, moved: false }
   }
   function onPointerMove(e: React.PointerEvent) {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pinch.current && pointers.current.size >= 2) {
+      const pts = [...pointers.current.values()]
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+      const ns = Math.min(MAX_ZOOM, Math.max(1, (pinch.current.scale * dist) / pinch.current.dist))
+      setScale(ns)
+      return
+    }
     if (!drag.current) return
     const pt = canvasPoint(e)
     const dx = pt.x - drag.current.x
@@ -429,7 +473,9 @@ export default function CollagePage() {
       }))
     }
   }
-  function onPointerUp() {
+  function onPointerUp(e: React.PointerEvent) {
+    pointers.current.delete(e.pointerId)
+    if (pointers.current.size < 2) pinch.current = null
     const d = drag.current
     drag.current = null
     // Tap (tanpa geser) pada teks yang sudah terpilih -> mulai edit + buka keyboard (dalam gesture).
@@ -548,6 +594,7 @@ export default function CollagePage() {
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
           className="block max-h-[55vh] max-w-full touch-none rounded-xl bg-white shadow ring-1 ring-gray-200"
           style={{ aspectRatio: `${OUT_W} / ${OUT_H}` }}
         />
@@ -559,39 +606,70 @@ export default function CollagePage() {
             const leftPx = activeLabelObj.x * dispW
             const topPx = activeLabelObj.y * dispH - fontPx * 0.6
             const lines = activeLabelObj.text.split('\n').length || 1
+            const scale = dispW / OUT_W
+            const r = measureLabelRect(activeLabelObj)
+            const rx = r.x * scale
+            const ry = r.y * scale
+            const rw = r.w * scale
+            const rh = r.h * scale
             return (
-              <textarea
-                ref={inlineRef}
-                value={activeLabelObj.text}
-                onChange={(e) => updateLabel({ text: e.target.value })}
-                onFocus={() => setEditing(true)}
-                onBlur={() => setEditing(false)}
-                spellCheck={false}
-                style={{
-                  position: 'absolute',
-                  left: leftPx,
-                  top: topPx,
-                  width: Math.max(40, dispW - leftPx),
-                  height: lines * fontPx * 1.2 + 6,
-                  font: `bold ${fontPx}px sans-serif`,
-                  lineHeight: 1.2,
-                  color: activeLabelObj.color === 'white' ? '#ffffff' : '#111111',
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  resize: 'none',
-                  padding: 0,
-                  margin: 0,
-                  whiteSpace: 'pre',
-                  overflow: 'hidden',
-                  pointerEvents: editing ? 'auto' : 'none', // saat tidak edit, biarkan canvas tangani geser
-                  caretColor: activeLabelObj.color === 'white' ? '#ffffff' : '#111111',
-                  textShadow:
-                    activeLabelObj.color === 'white'
-                      ? '0 0 3px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.7)'
-                      : '0 0 3px rgba(255,255,255,.85)',
-                }}
-              />
+              <>
+                <textarea
+                  ref={inlineRef}
+                  value={activeLabelObj.text}
+                  onChange={(e) => updateLabel({ text: e.target.value })}
+                  onFocus={() => setEditing(true)}
+                  onBlur={() => setEditing(false)}
+                  spellCheck={false}
+                  style={{
+                    position: 'absolute',
+                    left: leftPx,
+                    top: topPx,
+                    width: Math.max(40, dispW - leftPx),
+                    height: lines * fontPx * 1.2 + 6,
+                    font: `bold ${fontPx}px sans-serif`,
+                    lineHeight: 1.2,
+                    color: activeLabelObj.color === 'white' ? '#ffffff' : '#111111',
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    resize: 'none',
+                    padding: 0,
+                    margin: 0,
+                    whiteSpace: 'pre',
+                    overflow: 'hidden',
+                    pointerEvents: editing ? 'auto' : 'none',
+                    caretColor: activeLabelObj.color === 'white' ? '#ffffff' : '#111111',
+                    textShadow:
+                      activeLabelObj.color === 'white'
+                        ? '0 0 3px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.7)'
+                        : '0 0 3px rgba(255,255,255,.85)',
+                  }}
+                />
+                {/* Tombol hapus (atas) & duplikat (bawah) border teks */}
+                <button
+                  onClick={deleteLabel}
+                  className="absolute z-10 grid h-7 w-7 place-items-center rounded-full bg-white text-red-600 shadow ring-1 ring-gray-200"
+                  style={{ left: rx + rw / 2 - 14, top: Math.max(0, ry - 34) }}
+                  title="Hapus teks"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </button>
+                <button
+                  onClick={duplicateLabel}
+                  className="absolute z-10 grid h-7 w-7 place-items-center rounded-full bg-white text-sec-700 shadow ring-1 ring-gray-200"
+                  style={{ left: rx + rw / 2 - 14, top: ry + rh + 6 }}
+                  title="Duplikat teks"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                </button>
+              </>
             )
           })()}
       </div>
@@ -649,11 +727,13 @@ export default function CollagePage() {
           </div>
         )}
         <div>
-          <label className="label">Zoom</label>
+          <label className="label">
+            Zoom {((slide.slots[selected]?.scale ?? 1)).toFixed(1)}× (cubit 2 jari di gambar juga bisa)
+          </label>
           <input
             type="range"
             min={1}
-            max={3}
+            max={MAX_ZOOM}
             step={0.01}
             value={slide.slots[selected]?.scale ?? 1}
             onChange={(e) => setScale(Number(e.target.value))}
@@ -683,7 +763,7 @@ export default function CollagePage() {
               placeholder={'•-----A 120  atau  ootd kampus\n>>>>'}
             />
             <div>
-              <label className="label">Ukuran</label>
+              <label className="label">Ukuran font: {Math.round(activeLabelObj.size)} px</label>
               <input
                 type="range"
                 min={Math.round(OUT_W * 0.025)}
