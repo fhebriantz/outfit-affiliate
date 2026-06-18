@@ -133,3 +133,27 @@ create policy "screenshots_update_own" on storage.objects for update
   using (bucket_id = 'screenshots' and auth.uid()::text = (storage.foldername(name))[1]);
 create policy "screenshots_delete_own" on storage.objects for delete
   using (bucket_id = 'screenshots' and auth.uid()::text = (storage.foldername(name))[1]);
+
+-- =============================================================
+-- Fungsi atomik: pesan nomor item (hindari nomor kembar saat
+-- diakses bersamaan dari >1 device). Mengembalikan nomor PERTAMA
+-- yang dipesan. Base = max(counter, nomor item tertinggi) -> aman
+-- untuk data lama & tidak pernah memakai ulang nomor.
+-- =============================================================
+create or replace function public.reserve_item_numbers(p_count int)
+returns int
+language plpgsql
+as $$
+declare
+  v_floor int;
+  v_new int;
+begin
+  insert into public.settings (user_id) values (auth.uid()) on conflict (user_id) do nothing;
+  select coalesce(max(my_number), 0) into v_floor from public.items where user_id = auth.uid();
+  update public.settings
+     set last_number = greatest(last_number, v_floor) + p_count
+   where user_id = auth.uid()
+   returning last_number into v_new;
+  return v_new - p_count + 1;
+end;
+$$;

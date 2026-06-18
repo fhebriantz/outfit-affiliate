@@ -181,12 +181,15 @@ export async function saveSettings(userId: string, fields: Partial<Settings>): P
  * Aman untuk data lama: base diambil dari max(counter, nomor item tertinggi).
  */
 export async function reserveNumbers(userId: string, count: number): Promise<number> {
+  // Jalur atomik (RPC Postgres) -> aman dari nomor kembar antar device.
+  const { data, error } = await supabase.rpc('reserve_item_numbers', { p_count: count })
+  if (!error && typeof data === 'number') return data
+  // Fallback kalau fungsi RPC belum dibuat di Supabase.
   const settings = await getSettings(userId)
   const maxItem = await getMaxNumber()
   const base = Math.max(settings.last_number ?? 0, maxItem)
-  const start = base + 1
   await saveSettings(userId, { last_number: base + count })
-  return start
+  return base + 1
 }
 
 /** Nomor label-folder tertinggi yang sudah dipakai (dari label numerik, mis. "003" -> 3). */
