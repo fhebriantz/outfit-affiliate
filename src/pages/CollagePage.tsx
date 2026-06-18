@@ -201,11 +201,19 @@ export default function CollagePage() {
   const labelRects = useRef<Record<string, { x: number; y: number; w: number; h: number }>>({})
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const inlineRef = useRef<HTMLTextAreaElement>(null)
-  const lastTap = useRef<{ id: string; t: number } | null>(null)
   const idRef = useRef(1)
   const [editing, setEditing] = useState(false)
   const [dispW, setDispW] = useState(0)
-  const drag = useRef<{ mode: 'cell' | 'label'; id?: string; x: number; y: number } | null>(null)
+  const drag = useRef<{
+    mode: 'cell' | 'label'
+    id?: string
+    x: number
+    y: number
+    sx: number
+    sy: number
+    moved: boolean
+    wasActive?: boolean
+  } | null>(null)
   const nid = () => String(idRef.current++)
 
   const [slides, setSlides] = useState<Slide[]>([makeSlide('s0', 'cols3', '3:4')])
@@ -235,14 +243,15 @@ export default function CollagePage() {
       activeCell: selected,
       activeLabel,
       rectsOut: labelRects.current,
-      hideLabelId: editing ? activeLabel : null, // sembunyikan label saat diedit inline
+      // Label aktif digambar sebagai overlay teks; sembunyikan dari canvas.
+      hideLabelId: dispW > 0 ? activeLabel : null,
     })
   }
 
   useEffect(() => {
     draw()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slides, current, selected, activeLabel, editing])
+  }, [slides, current, selected, activeLabel, dispW])
 
   // Ukuran tampilan canvas (untuk posisikan editor teks inline).
   useEffect(() => {
@@ -381,29 +390,21 @@ export default function CollagePage() {
       const lab = slide.labels[i]
       const r = labelRects.current[lab.id]
       if (r && pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h) {
-        // Double-tap pada teks yang sama -> buka keyboard (fokus field). Tap tunggal = pilih + geser.
-        const isDouble = lastTap.current?.id === lab.id && e.timeStamp - lastTap.current.t < 350
-        lastTap.current = { id: lab.id, t: e.timeStamp }
+        const wasActive = activeLabel === lab.id
         setActiveLabel(lab.id)
-        if (isDouble) {
-          drag.current = null
-          setEditing(true) // edit langsung di gambar
-        } else {
-          setEditing(false)
-          drag.current = { mode: 'label', id: lab.id, x: pt.x, y: pt.y }
-        }
+        if (!wasActive) setEditing(false) // tap pertama: pilih dulu
+        drag.current = { mode: 'label', id: lab.id, x: pt.x, y: pt.y, sx: pt.x, sy: pt.y, moved: false, wasActive }
         return
       }
     }
-    lastTap.current = null
-    setEditing(false)
     setActiveLabel(null)
+    setEditing(false)
     const idx = layout.cells.findIndex((c) => {
       const px = cellPx(c, OUT_W, OUT_H, slide.showGap ? GAP_ON : 0)
       return pt.x >= px.x && pt.x <= px.x + px.w && pt.y >= px.y && pt.y <= px.y + px.h
     })
     if (idx >= 0) setSelected(idx)
-    drag.current = { mode: 'cell', x: pt.x, y: pt.y }
+    drag.current = { mode: 'cell', x: pt.x, y: pt.y, sx: pt.x, sy: pt.y, moved: false }
   }
   function onPointerMove(e: React.PointerEvent) {
     if (!drag.current) return
@@ -412,6 +413,7 @@ export default function CollagePage() {
     const dy = pt.y - drag.current.y
     drag.current.x = pt.x
     drag.current.y = pt.y
+    if (Math.abs(pt.x - drag.current.sx) + Math.abs(pt.y - drag.current.sy) > 6) drag.current.moved = true
     if (drag.current.mode === 'label') {
       const id = drag.current.id
       patchSlide((s) => ({
@@ -428,7 +430,13 @@ export default function CollagePage() {
     }
   }
   function onPointerUp() {
+    const d = drag.current
     drag.current = null
+    // Tap (tanpa geser) pada teks yang sudah terpilih -> mulai edit + buka keyboard (dalam gesture).
+    if (d && d.mode === 'label' && !d.moved && d.wasActive) {
+      setEditing(true)
+      inlineRef.current?.focus()
+    }
   }
 
   // ---------- Unduh ----------
@@ -543,8 +551,7 @@ export default function CollagePage() {
           className="block max-h-[55vh] max-w-full touch-none rounded-xl bg-white shadow ring-1 ring-gray-200"
           style={{ aspectRatio: `${OUT_W} / ${OUT_H}` }}
         />
-        {editing &&
-          activeLabelObj &&
+        {activeLabelObj &&
           dispW > 0 &&
           (() => {
             const dispH = (dispW * OUT_H) / OUT_W
@@ -557,6 +564,7 @@ export default function CollagePage() {
                 ref={inlineRef}
                 value={activeLabelObj.text}
                 onChange={(e) => updateLabel({ text: e.target.value })}
+                onFocus={() => setEditing(true)}
                 onBlur={() => setEditing(false)}
                 spellCheck={false}
                 style={{
@@ -576,6 +584,7 @@ export default function CollagePage() {
                   margin: 0,
                   whiteSpace: 'pre',
                   overflow: 'hidden',
+                  pointerEvents: editing ? 'auto' : 'none', // saat tidak edit, biarkan canvas tangani geser
                   caretColor: activeLabelObj.color === 'white' ? '#ffffff' : '#111111',
                   textShadow:
                     activeLabelObj.color === 'white'
