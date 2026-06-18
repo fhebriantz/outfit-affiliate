@@ -542,7 +542,7 @@ export default function CollagePage() {
     drawSlide(ctx, s, d, { showSel: false, activeCell: -1, activeLabel: null })
     if (fxGrain) humanizeCanvas(ctx, d.w, d.h) // grain + color jitter
     let dataUrl = tmp.toDataURL('image/jpeg', 0.95) // re-encode (selalu buang metadata sumber) + quality 0.95
-    if (fxMeta) dataUrl = injectIphoneExif(dataUrl) // suntik EXIF iPhone 13
+    if (fxMeta) dataUrl = injectIphoneExif(dataUrl, d.w, d.h) // suntik EXIF iPhone 13
     const a = document.createElement('a')
     a.href = dataUrl
     a.download = name
