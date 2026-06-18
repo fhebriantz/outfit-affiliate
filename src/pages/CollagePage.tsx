@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useToast } from '../context/ToastContext'
+import { humanizeCanvas } from '../lib/humanize'
 
 const GAP_ON = 14
 const MAX_ZOOM = 4
@@ -227,6 +228,7 @@ export default function CollagePage() {
   const [selected, setSelected] = useState(0)
   const [activeLabel, setActiveLabel] = useState<string | null>(null)
   const [pool, setPool] = useState<PoolImage[]>([])
+  const [humanizer, setHumanizer] = useState(false)
 
   const slide = slides[current]
   const dims = slideDims(slide)
@@ -537,6 +539,7 @@ export default function CollagePage() {
     tmp.height = d.h
     const ctx = tmp.getContext('2d')!
     drawSlide(ctx, s, d, { showSel: false, activeCell: -1, activeLabel: null })
+    if (humanizer) humanizeCanvas(ctx, d.w, d.h) // grain + color jitter + scrub metadata (via re-encode)
     return new Promise((resolve) => {
       tmp.toBlob(
         (blob) => {
@@ -849,6 +852,20 @@ export default function CollagePage() {
           <p className="text-sm text-gray-400">Belum ada teks dipilih. Tambah atau tap teks di gambar.</p>
         )}
       </div>
+
+      <label className="flex items-start gap-2 rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={humanizer}
+          onChange={(e) => setHumanizer(e.target.checked)}
+          className="mt-0.5"
+        />
+        <span>
+          <span className="font-semibold">Humanizer</span> — saat unduh, tambahkan grain + color jitter
+          halus & buang metadata untuk mengurangi fingerprint AI.{' '}
+          <span className="text-gray-400">Tiap unduh hasilnya sedikit berbeda.</span>
+        </span>
+      </label>
 
       <div className="flex flex-wrap gap-2">
         <button onClick={downloadCurrent} className="btn-secondary flex-1">
