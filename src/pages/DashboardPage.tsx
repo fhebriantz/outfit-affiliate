@@ -48,6 +48,7 @@ export default function DashboardPage() {
   const [imagesByPosting, setImagesByPosting] = useState<Record<string, PostingImage[]>>({})
   const [filter, setFilter] = useState<StageFilter>('all')
   const [query, setQuery] = useState('')
+  const [limit, setLimit] = useState(30)
   const [showArchived, setShowArchived] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -91,6 +92,9 @@ export default function DashboardPage() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Reset jumlah yang ditampilkan saat filter/pencarian berubah.
+  useEffect(() => setLimit(30), [filter, query])
 
   async function handleCreate() {
     if (!user) return
@@ -363,7 +367,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {visibleCards.map(({ p, items, images, imageCount, stage, reasons, synced }) => {
+          {visibleCards.slice(0, limit).map(({ p, items, images, imageCount, stage, reasons, synced }) => {
             const isExpanded = expanded.has(p.id)
             return (
               <div
@@ -469,6 +473,11 @@ export default function DashboardPage() {
               </div>
             )
           })}
+          {visibleCards.length > limit && (
+            <button onClick={() => setLimit((n) => n + 30)} className="btn-secondary w-full">
+              Muat lebih banyak ({visibleCards.length - limit} lagi)
+            </button>
+          )}
         </div>
       )}
     </div>

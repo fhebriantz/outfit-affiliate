@@ -75,6 +75,8 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [limit, setLimit] = useState(50)
+  useEffect(() => setLimit(50), [query])
 
   useEffect(() => {
     ;(async () => {
@@ -210,7 +212,7 @@ export default function ProductsPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {visible.map((p) => {
+          {visible.slice(0, limit).map((p) => {
             const hasAff = (p.rep.affiliate_link ?? '').trim().length > 0
             return (
               <div key={p.key} className="card space-y-2 p-3">
@@ -272,6 +274,11 @@ export default function ProductsPage() {
               </div>
             )
           })}
+          {visible.length > limit && (
+            <button onClick={() => setLimit((n) => n + 50)} className="btn-secondary w-full">
+              Muat lebih banyak ({visible.length - limit} lagi)
+            </button>
+          )}
         </div>
       )}
     </div>
