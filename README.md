@@ -18,6 +18,7 @@ Dibuat dengan **React + Vite + TypeScript + Tailwind**, data di **Supabase** (gr
 - [Halaman Collage / Slide](#halaman-collage--slide)
 - [Konsep penting](#konsep-penting)
 - [Backup & keamanan](#backup--keamanan)
+- [Keep-alive Supabase](#keep-alive-supabase)
 - [Troubleshooting](#troubleshooting)
 - [Struktur kode](#struktur-kode)
 
@@ -190,9 +191,31 @@ Untuk membuat gambar carousel siap-posting.
 ---
 
 ## Backup & keamanan
-- **Export/Import JSON** (Pengaturan) — backup & restore postingan + item (gambar tidak ikut; tersimpan di Storage). Lakukan berkala (free tier Supabase **auto-pause** bila ~1 minggu tidak aktif; data tidak hilang, tinggal restore).
+- **Export/Import JSON** (Pengaturan) — backup & restore postingan + item (gambar tidak ikut; tersimpan di Storage). Lakukan berkala sebagai jaring pengaman. (Soal auto-pause lihat bagian berikut.)
 - **RLS** — tiap user hanya bisa baca/tulis datanya sendiri; anon key di browser itu normal.
 - **Matikan pendaftaran** setelah akun jadi: `VITE_ALLOW_SIGNUP=false` + matikan signup di Supabase.
+
+---
+
+## Keep-alive Supabase
+Supabase free tier **auto-pause** bila project **~7 hari tidak ada aktivitas** (data tidak hilang, tapi perlu di-restore manual & lambat saat dibuka lagi).
+
+**Otomatis (sudah terpasang):** **Vercel Cron** memanggil endpoint **`/api/keepalive`** setiap hari (06:00 UTC). Endpoint ini melakukan satu query kecil ke Supabase → dihitung sebagai aktivitas → timer pause ter-reset. Pakai env yang sudah ada (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`), tanpa setting tambahan.
+
+Cek di **Vercel → Settings → Cron Jobs** (muncul `/api/keepalive`, bisa di-**Run** untuk tes). Respons sehat:
+```json
+{ "ok": true, "db": 200, "at": "2026-..." }
+```
+> Vercel Hobby (gratis) menjalankan cron **1×/hari** — cukup untuk window 7 hari. Membuka app secara berkala juga sudah dihitung aktivitas.
+
+### Cadangan: cron-job.org (opsional)
+Kalau ingin redundansi atau Vercel cron tidak jalan:
+1. Daftar gratis di **https://cron-job.org** → **Create cronjob**.
+2. **URL/title:** `https://<url-vercel-mu>/api/keepalive`
+3. **Request method:** `GET` — **tanpa payload/body & tanpa header khusus** (endpoint mengurus query Supabase sendiri di server; key tidak pernah diekspos).
+4. **Schedule:** sekali sehari (mis. setiap hari jam 06:00). Simpan.
+
+Itu saja — tidak ada body JSON yang perlu dikirim. (Endpoint juga menerima method apa pun, tapi GET paling simpel.)
 
 ---
 
@@ -205,6 +228,7 @@ Untuk membuat gambar carousel siap-posting.
 | Tombol Bagikan tidak muncul/efek | Web Share butuh **HTTPS + HP** (Android Chrome/iOS 15+); di desktop pakai Unduh. |
 | Short link tidak ke-resolve di lokal | Pastikan `npm run dev` (middleware aktif); di produksi via Vercel `/api/resolve`. |
 | Dimensi foto 0×0 di rincian HP | Aktifkan **Metadata iPhone 13** (menulis tag dimensi EXIF). |
+| Supabase "project paused" / lambat setelah lama nganggur | Restore di dashboard Supabase. Pastikan cron **/api/keepalive** jalan (lihat [Keep-alive](#keep-alive-supabase)). |
 
 ---
 
@@ -213,6 +237,7 @@ Untuk membuat gambar carousel siap-posting.
 supabase/schema.sql      DDL + RLS + bucket Storage + fungsi reserve_item_numbers
 api/resolve.js           Serverless Vercel: resolve short link Shopee
 api/_resolve-core.js     Logika resolve (dipakai juga middleware dev di vite.config.ts)
+api/keepalive.js         Keep-alive (dipanggil Vercel Cron harian — vercel.json) agar Supabase tidak auto-pause
 src/lib/format.ts        Fungsi murni: tanggal, parse link, caption, cek sinkron, tahap, kode katalog
 src/lib/shopee.ts        Parse {shop}/{item}, link bersih, cari duplikat, expand short link
 src/lib/humanize.ts      Grain + color jitter + EXIF iPhone 13 (piexifjs)
