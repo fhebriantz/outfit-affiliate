@@ -176,11 +176,11 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
       const ih = slot.img.naturalHeight
       // Background sel (kelihatan saat gambar di-zoom out / tidak menutup penuh).
       if (slide.bg === 'blur') {
-        const cover = Math.max(px.w / iw, px.h / ih) * 1.15 // sedikit lebih besar agar blur tak bocor di tepi
+        const cover = Math.max(px.w / iw, px.h / ih) * 1.08 // sedikit lebih besar agar blur tak bocor di tepi
         const bw = iw * cover
         const bh = ih * cover
         ctx.save()
-        ctx.filter = `blur(${Math.max(8, px.w * 0.05)}px)`
+        ctx.filter = `blur(${Math.max(4, px.w * 0.022)}px)`
         ctx.drawImage(slot.img, px.x + (px.w - bw) / 2, px.y + (px.h - bh) / 2, bw, bh)
         ctx.restore()
       } else {
@@ -515,6 +515,22 @@ export default function CollagePage() {
     patchSlide((s) => ({
       ...s,
       slots: s.slots.map((sl, i) => (i === selected ? { ...sl, scale: 1, offsetX: 0, offsetY: 0 } : sl)),
+    }))
+  }
+  // Zoom out otomatis sampai seluruh gambar muat di frame (contain), tanpa terpotong.
+  function fitToRatio() {
+    const slot = slide.slots[selected]
+    const c = layout.cells[selected]
+    if (!slot?.img || !c) return
+    const px = cellPx(c, OUT_W, OUT_H, slide.showGap ? GAP_ON : 0)
+    const iw = slot.img.naturalWidth
+    const ih = slot.img.naturalHeight
+    const cover = Math.max(px.w / iw, px.h / ih)
+    const contain = Math.min(px.w / iw, px.h / ih)
+    const scale = Math.max(MIN_ZOOM, contain / cover)
+    patchSlide((s) => ({
+      ...s,
+      slots: s.slots.map((sl, i) => (i === selected ? { ...sl, scale, offsetX: 0, offsetY: 0 } : sl)),
     }))
   }
 
@@ -965,6 +981,9 @@ export default function CollagePage() {
           </button>
           <button onClick={resetSlot} className="btn-ghost" disabled={!slide.slots[selected]?.img}>
             Reset posisi
+          </button>
+          <button onClick={fitToRatio} className="btn-ghost" disabled={!slide.slots[selected]?.img}>
+            Fit to ratio
           </button>
         </div>
         {pool.length > 0 && (
