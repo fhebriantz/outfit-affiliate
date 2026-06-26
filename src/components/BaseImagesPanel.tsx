@@ -61,7 +61,7 @@ export default function BaseImagesPanel() {
                 <div key={name} className="space-y-1">
                   <button
                     onClick={() => setPreview(name)}
-                    className="block w-full"
+                    className="relative block w-full overflow-hidden rounded-lg ring-1 ring-gray-200"
                     title={name}
                   >
                     <img
@@ -69,8 +69,11 @@ export default function BaseImagesPanel() {
                       alt={name}
                       loading="lazy"
                       decoding="async"
-                      className="aspect-[3/4] w-full rounded-lg object-cover ring-1 ring-gray-200"
+                      className="aspect-[3/4] w-full object-cover"
                     />
+                    <div className="absolute inset-x-0 bottom-0 truncate bg-black/10 px-1.5 py-1 text-center text-[10px] text-white">
+                      {name}
+                    </div>
                   </button>
                   <a
                     href={urlOf(name)}
