@@ -156,14 +156,6 @@ export function computeSyncChecks(
 
   const numbers = items.map((i) => i.my_number)
   const dupNumbers = numbers.length !== new Set(numbers).size
-  const sorted = items.slice().sort((a, b) => a.urutan - b.urutan).map((i) => i.my_number)
-  let berurutan = true
-  for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i] !== sorted[i - 1] + 1) {
-      berurutan = false
-      break
-    }
-  }
 
   return [
     {
@@ -194,12 +186,6 @@ export function computeSyncChecks(
       key: 'nomor_unik',
       label: 'Nomor tidak ada yang duplikat',
       ok: !dupNumbers,
-    },
-    {
-      key: 'nomor_urut',
-      label: 'Nomor berurutan tanpa lompat',
-      ok: berurutan,
-      detail: sorted.length ? `${sorted[0]}–${sorted[sorted.length - 1]}` : undefined,
     },
     {
       key: 'ref_url',
