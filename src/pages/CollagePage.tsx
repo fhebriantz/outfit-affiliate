@@ -9,7 +9,8 @@ import { humanizeCanvas, injectIphoneExif } from '../lib/humanize'
 
 const GAP_ON = 14
 const MAX_ZOOM = 4
-const TEXT_FONT = '"Playfair Display", serif'
+const TEXT_FONT = '"Outfit", sans-serif'
+const TEXT_WEIGHT = 200
 
 type Ratio = { key: string; label: string; w: number; h: number }
 const RATIOS: Ratio[] = [
@@ -165,7 +166,7 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
   for (const l of slide.labels) {
     const px = l.x * W
     const py = l.y * H
-    ctx.font = `bold ${l.size}px ${TEXT_FONT}`
+    ctx.font = `${TEXT_WEIGHT} ${l.size}px ${TEXT_FONT}`
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     const lines = l.text.split('\n')
@@ -301,11 +302,12 @@ export default function CollagePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides, current, selected, activeLabel, dispW, fontReady])
 
-  // Pastikan font Playfair Display termuat sebelum digambar di canvas.
+  // Pastikan font Outfit (ExtraLight) termuat sebelum digambar di canvas.
   useEffect(() => {
     const fonts = (document as Document & { fonts?: FontFaceSet }).fonts
     if (!fonts) return
-    Promise.all([fonts.load('700 32px "Playfair Display"'), fonts.load('italic 700 32px "Playfair Display"')])
+    fonts
+      .load(`${TEXT_WEIGHT} 32px ${TEXT_FONT}`)
       .then(() => setFontReady(true))
       .catch(() => setFontReady(true))
   }, [])
@@ -480,7 +482,7 @@ export default function CollagePage() {
   function measureLabelRect(l: Label) {
     if (!measureCtx.current) measureCtx.current = document.createElement('canvas').getContext('2d')
     const ctx = measureCtx.current!
-    ctx.font = `bold ${l.size}px ${TEXT_FONT}`
+    ctx.font = `${TEXT_WEIGHT} ${l.size}px ${TEXT_FONT}`
     const lines = l.text.split('\n')
     const lineH = l.size * 1.2
     let maxW = 0
@@ -747,7 +749,7 @@ export default function CollagePage() {
                     top: topPx,
                     width: Math.max(40, dispW - leftPx),
                     height: lines * fontPx * 1.2 + 6,
-                    font: `bold ${fontPx}px ${TEXT_FONT}`,
+                    font: `${TEXT_WEIGHT} ${fontPx}px ${TEXT_FONT}`,
                     lineHeight: 1.2,
                     color: activeLabelObj.color === 'white' ? '#ffffff' : '#111111',
                     background: 'transparent',
