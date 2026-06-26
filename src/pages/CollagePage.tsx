@@ -211,6 +211,16 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
     }
     if (l.id === opts.hideLabelId) continue // jangan gambar teksnya (dirender sebagai overlay)
     // Bayangan teks ke arah kanan-bawah (digambar dulu, lalu teks utama menimpa).
+    // Glow tipis di sekeliling teks (meniru stroke halus yang terlihat saat edit).
+    ctx.save()
+    ctx.shadowColor = l.color === 'white' ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.85)'
+    ctx.shadowBlur = Math.max(2, l.size * 0.12)
+    ctx.fillStyle = l.color === 'white' ? '#ffffff' : '#111111'
+    lines.forEach((ln, li) => ctx.fillText(ln, px, py + li * lineH))
+    lines.forEach((ln, li) => ctx.fillText(ln, px, py + li * lineH)) // pass kedua biar glow lebih terlihat
+    ctx.restore()
+
+    // Bayangan ke arah kanan-bawah.
     ctx.save()
     ctx.shadowColor = 'rgba(0,0,0,0.5)'
     ctx.shadowBlur = Math.max(2, l.size * 0.06)
@@ -220,7 +230,7 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
     lines.forEach((ln, li) => ctx.fillText(ln, px, py + li * lineH))
     ctx.restore()
 
-    // Teks utama tanpa stroke (cukup bayangan untuk kontras).
+    // Teks utama (menimpa, tanpa stroke).
     ctx.fillStyle = l.color === 'white' ? '#ffffff' : '#111111'
     lines.forEach((ln, li) => ctx.fillText(ln, px, py + li * lineH))
   }
