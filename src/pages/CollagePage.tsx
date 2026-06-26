@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { getSettings, listAllItems, listPostings } from '../lib/db'
-import { buildCaption, formatTanggalIndo } from '../lib/format'
+import { buildCaption, buildMultiCaption, formatTanggalIndo } from '../lib/format'
 import { DEFAULT_HASHTAGS } from '../lib/types'
 import type { Item, Posting } from '../lib/types'
 import { humanizeCanvas, injectIphoneExif } from '../lib/humanize'
@@ -242,7 +242,7 @@ export default function CollagePage() {
   const [postings, setPostings] = useState<Posting[]>([])
   const [itemsByPosting, setItemsByPosting] = useState<Record<string, Item[]>>({})
   const [defaultHashtags, setDefaultHashtags] = useState(DEFAULT_HASHTAGS)
-  const [captionPostingId, setCaptionPostingId] = useState('')
+  const [captionPostingIds, setCaptionPostingIds] = useState<string[]>([])
 
   useEffect(() => {
     if (!user) return
@@ -265,11 +265,38 @@ export default function CollagePage() {
   }, [user])
 
   const shareCaption = useMemo(() => {
-    if (!captionPostingId) return ''
-    const p = postings.find((x) => x.id === captionPostingId)
-    if (!p) return ''
-    return buildCaption(itemsByPosting[p.id] ?? [], p.caption_hashtags ?? defaultHashtags, p.catatan ?? '')
-  }, [captionPostingId, postings, itemsByPosting, defaultHashtags])
+    const chosen = captionPostingIds
+      .map((id) => postings.find((p) => p.id === id))
+      .filter((p): p is Posting => !!p)
+    if (chosen.length === 0) return ''
+    if (chosen.length === 1) {
+      const p = chosen[0]
+      return buildCaption(itemsByPosting[p.id] ?? [], p.caption_hashtags ?? defaultHashtags, p.catatan ?? '')
+    }
+    // Gabungkan hashtag unik dari semua postingan terpilih (urut, tanpa duplikat).
+    const tags: string[] = []
+    for (const p of chosen) {
+      for (const t of (p.caption_hashtags ?? defaultHashtags).split(/\s+/)) {
+        const tag = t.trim()
+        if (tag && !tags.includes(tag)) tags.push(tag)
+      }
+    }
+    const slides = chosen.map((p) => ({
+      label: p.label || formatTanggalIndo(p.tanggal),
+      items: itemsByPosting[p.id] ?? [],
+    }))
+    return buildMultiCaption(slides, tags.join(' '))
+  }, [captionPostingIds, postings, itemsByPosting, defaultHashtags])
+
+  function moveCaptionPosting(idx: number, dir: -1 | 1) {
+    setCaptionPostingIds((prev) => {
+      const j = idx + dir
+      if (j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[idx], next[j]] = [next[j], next[idx]]
+      return next
+    })
+  }
 
   const slide = slides[current]
   const dims = slideDims(slide)
@@ -948,21 +975,74 @@ export default function CollagePage() {
 
       <div>
         <label className="label">Caption untuk dibagikan (opsional)</label>
+        <p className="mb-1 text-xs text-gray-500">
+          Pilih 1 postingan, atau beberapa untuk caption gabungan (Slide 1, 2, 3…).
+        </p>
         <select
           className="input"
-          value={captionPostingId}
-          onChange={(e) => setCaptionPostingId(e.target.value)}
+          value=""
+          onChange={(e) => {
+            const id = e.target.value
+            if (id) setCaptionPostingIds((prev) => (prev.includes(id) ? prev : [...prev, id]))
+          }}
         >
-          <option value="">(tanpa caption)</option>
-          {postings.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.label || formatTanggalIndo(p.tanggal)}
-              {p.ref_nama ? ` — ${p.ref_nama}` : ''}
-            </option>
-          ))}
+          <option value="">+ Tambah postingan…</option>
+          {postings
+            .filter((p) => !captionPostingIds.includes(p.id))
+            .map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label || formatTanggalIndo(p.tanggal)}
+                {p.ref_nama ? ` — ${p.ref_nama}` : ''}
+              </option>
+            ))}
         </select>
+
+        {captionPostingIds.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {captionPostingIds.map((id, idx) => {
+              const p = postings.find((x) => x.id === id)
+              if (!p) return null
+              return (
+                <li
+                  key={id}
+                  className="flex items-center gap-2 rounded-lg bg-gray-50 px-2 py-1 text-sm"
+                >
+                  <span className="shrink-0 font-medium text-gray-400">Slide {idx + 1}</span>
+                  <span className="flex-1 truncate">{p.label || formatTanggalIndo(p.tanggal)}</span>
+                  <button
+                    type="button"
+                    onClick={() => moveCaptionPosting(idx, -1)}
+                    disabled={idx === 0}
+                    className="px-1 text-gray-500 disabled:opacity-30"
+                    aria-label="Naik"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveCaptionPosting(idx, 1)}
+                    disabled={idx === captionPostingIds.length - 1}
+                    className="px-1 text-gray-500 disabled:opacity-30"
+                    aria-label="Turun"
+                  >
+                    ▼
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCaptionPostingIds((prev) => prev.filter((x) => x !== id))}
+                    className="px-1 text-red-500"
+                    aria-label="Hapus"
+                  >
+                    ✕
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
         {shareCaption && (
-          <pre className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-xs text-gray-600">
+          <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-2 text-xs text-gray-600">
             {shareCaption}
           </pre>
         )}

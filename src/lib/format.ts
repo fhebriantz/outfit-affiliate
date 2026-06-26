@@ -132,6 +132,46 @@ export function buildCaption(
   return sections.join('\n\n')
 }
 
+export const SPILL_HEADER = 'SPILL OUTFIT DI CAPTION 👇'
+
+/**
+ * Caption gabungan beberapa postingan jadi 1 carousel:
+ *   SPILL OUTFIT DI CAPTION 👇
+ *
+ *   Slide 1 : (017)
+ *   -Pashmina : no A 116
+ *   ...
+ *
+ *   Slide 2 : (021)
+ *   ...
+ *
+ *   Cara order
+ *   1. ... 2. ... 3. ...
+ *   #hashtag ...
+ */
+export function buildMultiCaption(
+  slides: { label: string; items: Item[] }[],
+  hashtags: string,
+  header = SPILL_HEADER,
+): string {
+  const sections: string[] = []
+  if (header && header.trim()) sections.push(header.trim())
+  slides.forEach((s, i) => {
+    const baris = s.items
+      .slice()
+      .sort((a, b) => a.urutan - b.urutan)
+      .map((it) => {
+        const kat = (it.kategori ?? 'item').trim() || 'item'
+        return `-${kat} : no ${formatItemCode(it.my_number)}`
+      })
+    const head = `Slide ${i + 1} :${s.label && s.label.trim() ? ` (${s.label.trim()})` : ''}`
+    sections.push([head, ...baris].join('\n'))
+  })
+  sections.push(ORDER_INFO)
+  if (hashtags && hashtags.trim()) sections.push(hashtags.trim())
+  return sections.join('\n\n')
+}
+
 /** Saran nomor berikutnya berdasarkan nomor global tertinggi yang sudah dipakai. */
 export function nextNumber(maxUsed: number | null | undefined): number {
   const base = typeof maxUsed === 'number' && Number.isFinite(maxUsed) ? maxUsed : 0
