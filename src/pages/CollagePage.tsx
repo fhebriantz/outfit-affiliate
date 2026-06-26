@@ -16,6 +16,15 @@ const ZOOM_STEPS: number[] = (() => {
   for (let z = 1; z <= MAX_ZOOM + 1e-9; z += 0.05) out.push(Math.round(z * 100) / 100)
   return out
 })()
+// iOS (Safari/Chrome di iPhone) auto-zoom halaman saat fokus ke input ber-font < 16px,
+// yang bikin posisi editor teks meleset & susah diedit. Kunci zoom HANYA saat mengedit,
+// lalu lepas lagi (set sebelum focus() supaya iOS tidak terlanjur zoom).
+function setEditViewport(lock: boolean): void {
+  const meta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null
+  if (!meta) return
+  const base = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
+  meta.setAttribute('content', lock ? `${base}, maximum-scale=1.0, user-scalable=no` : base)
+}
 const zoomStepIndex = (scale: number): number => {
   let best = 0
   let bestD = Infinity
@@ -396,8 +405,11 @@ export default function CollagePage() {
   }
   useEffect(() => {
     if (editing) setTimeout(focusInlineEnd, 0)
+    else setEditViewport(false) // lepas kunci zoom saat selesai edit
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing, activeLabel])
+  // Pastikan kunci zoom selalu dilepas saat keluar halaman.
+  useEffect(() => () => setEditViewport(false), [])
 
   // ---------- Slide ----------
   function addSlide() {
@@ -633,6 +645,7 @@ export default function CollagePage() {
     drag.current = null
     // Tap (tanpa geser) pada teks yang sudah terpilih -> mulai edit + buka keyboard (dalam gesture).
     if (d && d.mode === 'label' && !d.moved && d.wasActive) {
+      setEditViewport(true) // cegah iOS auto-zoom: set SEBELUM focus()
       setEditing(true)
       focusInlineEnd()
     }
@@ -800,9 +813,15 @@ export default function CollagePage() {
                   ref={inlineRef}
                   value={activeLabelObj.text}
                   onChange={(e) => updateLabel({ text: e.target.value })}
-                  onFocus={() => setEditing(true)}
+                  onFocus={() => {
+                    setEditViewport(true)
+                    setEditing(true)
+                  }}
                   onBlur={() => setEditing(false)}
                   spellCheck={false}
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  autoComplete="off"
                   style={{
                     position: 'absolute',
                     left: leftPx,
