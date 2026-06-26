@@ -945,22 +945,6 @@ export default function CollagePage() {
                   disabled={!hasImg}
                   className="w-full accent-brand-600"
                 />
-                <div className="mt-1 flex gap-1 overflow-x-auto pb-1">
-                  {ZOOM_STEPS.map((z, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      disabled={!hasImg}
-                      onClick={() => setScale(z)}
-                      title={`${z.toFixed(2)}×`}
-                      className={`min-w-[22px] shrink-0 rounded px-1.5 py-0.5 text-[10px] tabular-nums disabled:opacity-40 ${
-                        i === curStep ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-                </div>
               </>
             )
           })()}
