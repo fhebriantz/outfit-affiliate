@@ -92,12 +92,19 @@ export default function BaseImagesPanel() {
           onClick={() => setPreview(null)}
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 p-4"
         >
-          <img
-            src={urlOf(preview)}
-            alt={preview}
+          <div
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[80vh] max-w-full rounded-lg object-contain shadow-2xl"
-          />
+            className="relative inline-block max-w-full overflow-hidden rounded-lg shadow-2xl"
+          >
+            <img
+              src={urlOf(preview)}
+              alt={preview}
+              className="block max-h-[80vh] max-w-full object-contain"
+            />
+            <div className="absolute inset-x-0 bottom-0 truncate bg-black/10 px-3 py-2 text-center text-sm text-white">
+              {preview}
+            </div>
+          </div>
           <div
             onClick={(e) => e.stopPropagation()}
             className="mt-3 flex items-center gap-2"
