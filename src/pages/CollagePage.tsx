@@ -416,7 +416,7 @@ export default function CollagePage() {
       ...s,
       labels: [
         ...s.labels,
-        { id, text: DEFAULT_LABEL_TEXT, x: 0.12, y: 0.5, size: 36, color: 'white' },
+        { id, text: DEFAULT_LABEL_TEXT, x: 0.12, y: 0.5, size: 32, color: 'white' },
       ],
     }))
     setActiveLabel(id)
