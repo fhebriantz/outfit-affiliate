@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 import { listAllItems, listPostings, updateItem } from '../lib/db'
-import { parseShopeeKey, resolveAffiliateLinks } from '../lib/shopee'
-import { formatItemCode, formatTanggalIndo, parseBulkLinks, parseItemCode } from '../lib/format'
+import { parseShopeeKey } from '../lib/shopee'
+import { formatItemCode, formatTanggalIndo, parseItemCode } from '../lib/format'
 import type { Item } from '../lib/types'
 import CopyButton from '../components/CopyButton'
 
@@ -77,9 +77,6 @@ export default function ProductsPage() {
   const [query, setQuery] = useState('')
   const [limit, setLimit] = useState(50)
   const [affFilter, setAffFilter] = useState<'all' | 'with' | 'without'>('all')
-  const [showMaster, setShowMaster] = useState(false)
-  const [masterPaste, setMasterPaste] = useState('')
-  const [masterBusy, setMasterBusy] = useState(false)
   useEffect(() => setLimit(50), [query, affFilter])
 
   useEffect(() => {
@@ -159,58 +156,6 @@ export default function ProductsPage() {
     )
   }, [products, query, affFilter])
 
-  // Import Affiliate Master: paste semua link affiliate -> cocokkan ke produk (lintas postingan)
-  // berdasarkan kunci Shopee, lalu isi affiliate_link ke SEMUA item produk yang cocok.
-  async function applyMaster() {
-    const links = parseBulkLinks(masterPaste)
-    if (links.length === 0) {
-      toast('Tidak ada link terdeteksi', 'err')
-      return
-    }
-    setMasterBusy(true)
-    try {
-      const { byKey, unresolved } = await resolveAffiliateLinks(links)
-      const updates: { prod: Product; link: string }[] = []
-      for (const p of products) {
-        if (byKey.has(p.key)) {
-          const link = byKey.get(p.key)!
-          if ((p.rep.affiliate_link ?? '') !== link) updates.push({ prod: p, link })
-        }
-      }
-      if (updates.length === 0) {
-        toast(
-          byKey.size === 0
-            ? 'Tidak ada link yang bisa dikenali sebagai produk Shopee'
-            : 'Semua produk yang cocok sudah pakai link ini',
-        )
-        return
-      }
-      await Promise.all(
-        updates.flatMap(({ prod, link }) => prod.items.map((it) => updateItem(it.id, { affiliate_link: link }))),
-      )
-      const linkByKey = new Map(updates.map((u) => [u.prod.key, u.link]))
-      setProducts((prev) =>
-        prev.map((p) =>
-          linkByKey.has(p.key)
-            ? {
-                ...p,
-                rep: { ...p.rep, affiliate_link: linkByKey.get(p.key)! },
-                items: p.items.map((it) => ({ ...it, affiliate_link: linkByKey.get(p.key)! })),
-              }
-            : p,
-        ),
-      )
-      setMasterPaste('')
-      const itemCount = updates.reduce((s, u) => s + u.prod.items.length, 0)
-      const tail = unresolved.length ? ` · ${unresolved.length} link tak cocok produk` : ''
-      toast(`${updates.length} produk terisi (${itemCount} item)${tail}`)
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Gagal import affiliate', 'err')
-    } finally {
-      setMasterBusy(false)
-    }
-  }
-
   // Update field (nomor/link) untuk SEMUA item produk ini agar konsisten di semua postingan.
   async function updateGroup(prod: Product, patch: Partial<Item>) {
     try {
@@ -257,44 +202,6 @@ export default function ProductsPage() {
         Semua produk (digabung per produk). Bisa edit nomor, link sumber, &amp; link affiliate di sini
         — mis. saat produk habis dan linknya perlu diganti.
       </p>
-
-      {/* Import Affiliate Master */}
-      <div className="card mb-4 space-y-2 p-3">
-        <button
-          onClick={() => setShowMaster((s) => !s)}
-          className="flex w-full items-center justify-between text-left"
-        >
-          <span className="font-semibold text-gray-900">Import Affiliate (master)</span>
-          <span className="text-gray-400">{showMaster ? '▲' : '▼'}</span>
-        </button>
-        {showMaster && (
-          <>
-            <p className="text-xs text-gray-500">
-              Paste <strong>semua link affiliate</strong> sekaligus (urutan bebas). Dicocokkan otomatis
-              ke produk yang sama di <strong>seluruh katalog</strong> berdasarkan produk Shopee-nya, lalu
-              link affiliate diisi ke semua nomor yang memakai produk itu.
-            </p>
-            <textarea
-              className="input min-h-[90px] font-mono text-sm"
-              value={masterPaste}
-              onChange={(e) => setMasterPaste(e.target.value)}
-              placeholder={'https://s.shopee.co.id/...\nhttps://s.shopee.co.id/...'}
-            />
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-400">
-                {parseBulkLinks(masterPaste).length} link terdeteksi
-              </span>
-              <button
-                onClick={applyMaster}
-                disabled={masterBusy}
-                className="btn-primary disabled:opacity-50"
-              >
-                {masterBusy ? 'Mencocokkan…' : 'Cocokkan & isi'}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
 
       {/* Filter status affiliate */}
       <div className="mb-3 flex gap-2">

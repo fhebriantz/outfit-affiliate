@@ -1,74 +1,122 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useToast } from '../context/ToastContext'
+import { listAllItems, updateItem } from '../lib/db'
+import { parseShopeeKey, resolveAffiliateLinks } from '../lib/shopee'
+import { parseBulkLinks } from '../lib/format'
+import type { Item } from '../lib/types'
 
-// Halaman koleksi affiliate (mis. collshp.com) dibungkus dalam iframe — tetap di web ini.
-// URL bisa diedit & disimpan di localStorage (tidak perlu DB).
-const STORAGE_KEY = 'koleksi_url'
-const DEFAULT_URL = 'https://collshp.com/ourdailyoutfit'
+// Halaman koleksi affiliate (collshp) dibungkus iframe — tetap di web ini.
+// Di atasnya ada Import Affiliate Master: salin link dari koleksi, paste, lalu
+// dicocokkan otomatis ke seluruh katalog berdasarkan produk Shopee-nya.
+const COLLECTION_URL = 'https://collshp.com/ourdailyoutfit'
+
+function productKey(it: Item): string {
+  return (
+    parseShopeeKey(it.source_link) ||
+    (it.source_link ?? '').trim() ||
+    (it.affiliate_link ?? '').trim() ||
+    it.id
+  )
+}
 
 export default function CollectionPage() {
-  const [url, setUrl] = useState(() => localStorage.getItem(STORAGE_KEY) || DEFAULT_URL)
-  const [draft, setDraft] = useState(url)
+  const { toast } = useToast()
+  const [items, setItems] = useState<Item[]>([])
+  const [paste, setPaste] = useState('')
+  const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
-  // Anggap "gagal tampil" kalau setelah beberapa detik iframe belum memicu onLoad
-  // (mis. diblokir / lambat) — tampilkan tombol buka di tab baru.
-  const [slow, setSlow] = useState(false)
-  const timer = useRef<number | null>(null)
 
   useEffect(() => {
-    setLoaded(false)
-    setSlow(false)
-    if (timer.current) window.clearTimeout(timer.current)
-    timer.current = window.setTimeout(() => setSlow(true), 6000)
-    return () => {
-      if (timer.current) window.clearTimeout(timer.current)
-    }
-  }, [url])
+    ;(async () => {
+      try {
+        setItems(await listAllItems())
+      } catch {
+        /* abaikan; import butuh data item, tapi iframe tetap tampil */
+      }
+    })()
+  }, [])
 
-  function saveUrl() {
-    const v = draft.trim()
-    if (!v) return
-    const fixed = /^https?:\/\//i.test(v) ? v : `https://${v}`
-    localStorage.setItem(STORAGE_KEY, fixed)
-    setUrl(fixed)
-    setDraft(fixed)
+  async function applyMaster() {
+    const links = parseBulkLinks(paste)
+    if (links.length === 0) {
+      toast('Tidak ada link terdeteksi', 'err')
+      return
+    }
+    setBusy(true)
+    try {
+      const { byKey, unresolved } = await resolveAffiliateLinks(links)
+      const groups = new Map<string, Item[]>()
+      for (const it of items) {
+        if (!(it.source_link ?? '').trim() && !(it.affiliate_link ?? '').trim()) continue
+        const k = productKey(it)
+        const arr = groups.get(k) ?? []
+        arr.push(it)
+        groups.set(k, arr)
+      }
+      const toUpdate: { id: string; link: string }[] = []
+      let prodCount = 0
+      for (const [k, its] of groups) {
+        if (!byKey.has(k)) continue
+        const link = byKey.get(k)!
+        const changed = its.filter((it) => (it.affiliate_link ?? '') !== link)
+        if (changed.length) {
+          prodCount++
+          changed.forEach((it) => toUpdate.push({ id: it.id, link }))
+        }
+      }
+      if (toUpdate.length === 0) {
+        toast(
+          byKey.size === 0
+            ? 'Tidak ada link yang dikenali sebagai produk Shopee'
+            : 'Semua produk yang cocok sudah pakai link ini',
+        )
+        return
+      }
+      await Promise.all(toUpdate.map((u) => updateItem(u.id, { affiliate_link: u.link })))
+      const linkById = new Map(toUpdate.map((u) => [u.id, u.link]))
+      setItems((prev) =>
+        prev.map((it) => (linkById.has(it.id) ? { ...it, affiliate_link: linkById.get(it.id)! } : it)),
+      )
+      setPaste('')
+      const tail = unresolved.length ? ` · ${unresolved.length} link tak cocok produk` : ''
+      toast(`${prodCount} produk terisi (${toUpdate.length} item)${tail}`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal import affiliate', 'err')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">Koleksi</h1>
-        <a href={url} target="_blank" rel="noreferrer" className="btn-secondary text-xs">
-          Buka di tab baru ↗
-        </a>
-      </div>
-      <p className="text-sm text-gray-500">
-        Halaman koleksi affiliate-mu ditampilkan langsung di sini. Kalau tampil kosong/diblokir Shopee,
-        pakai tombol <strong>Buka di tab baru</strong>.
-      </p>
-
-      <div className="flex gap-1">
-        <input
-          className="input"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={saveUrl}
-          onKeyDown={(e) => e.key === 'Enter' && saveUrl()}
-          placeholder="https://collshp.com/namamu"
+      <div className="card space-y-2 p-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-900">Import Affiliate (master)</h2>
+          <span className="text-xs text-gray-400">{parseBulkLinks(paste).length} link</span>
+        </div>
+        <textarea
+          className="input min-h-[80px] font-mono text-sm"
+          value={paste}
+          onChange={(e) => setPaste(e.target.value)}
+          placeholder="Salin link affiliate dari koleksi di bawah, paste di sini…"
         />
-        <button onClick={saveUrl} className="btn-secondary shrink-0">
-          Muat
+        <button
+          onClick={applyMaster}
+          disabled={busy}
+          className="btn-primary w-full disabled:opacity-50"
+        >
+          {busy ? 'Mencocokkan…' : 'Cocokkan & isi ke katalog'}
         </button>
       </div>
 
       <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white">
         {!loaded && (
           <div className="absolute inset-0 grid place-items-center text-sm text-gray-400">
-            {slow ? 'Lambat / mungkin diblokir — coba "Buka di tab baru".' : 'Memuat koleksi…'}
+            Memuat koleksi…
           </div>
         )}
         <iframe
-          key={url}
-          src={url}
+          src={COLLECTION_URL}
           title="Koleksi affiliate"
           onLoad={() => setLoaded(true)}
           referrerPolicy="no-referrer"
