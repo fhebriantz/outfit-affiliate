@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import PostingEditorPage from './pages/PostingEditorPage'
 import ProductsPage from './pages/ProductsPage'
 import CollagePage from './pages/CollagePage'
+import CollectionPage from './pages/CollectionPage'
 import SettingsPage from './pages/SettingsPage'
 import { isSupabaseConfigured } from './lib/supabase'
 
@@ -71,6 +72,16 @@ export default function App() {
             <ProtectedRoute>
               <Layout>
                 <CollagePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/koleksi"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <CollectionPage />
               </Layout>
             </ProtectedRoute>
           }

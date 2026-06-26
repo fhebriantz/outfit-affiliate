@@ -26,6 +26,13 @@ function IconCollage() {
     </svg>
   )
 }
+function IconKoleksi() {
+  return (
+    <svg className={ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  )
+}
 function IconSetting() {
   return (
     <svg className={ICON} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -80,6 +87,9 @@ export default function Layout({ children }: { children: ReactNode }) {
             <NavLink to="/collage" className={navClass}>
               <IconCollage /> Collage
             </NavLink>
+            <NavLink to="/koleksi" className={navClass}>
+              <IconKoleksi /> Koleksi
+            </NavLink>
             <NavLink to="/settings" className={navClass}>
               <IconSetting /> Pengaturan
             </NavLink>
@@ -124,6 +134,9 @@ export default function Layout({ children }: { children: ReactNode }) {
               </NavLink>
               <NavLink to="/collage" className={itemClass} onClick={() => setMenuOpen(false)}>
                 <IconCollage /> Collage
+              </NavLink>
+              <NavLink to="/koleksi" className={itemClass} onClick={() => setMenuOpen(false)}>
+                <IconKoleksi /> Koleksi
               </NavLink>
               <NavLink to="/settings" className={itemClass} onClick={() => setMenuOpen(false)}>
                 <IconSetting /> Pengaturan
