@@ -191,6 +191,16 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
       ctx.restore()
     }
     if (l.id === opts.hideLabelId) continue // jangan gambar teksnya (dirender sebagai overlay)
+    // Bayangan teks ke arah kanan-bawah (digambar dulu, lalu teks utama menimpa).
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'
+    ctx.shadowBlur = Math.max(2, l.size * 0.06)
+    ctx.shadowOffsetX = Math.max(1.5, l.size * 0.08)
+    ctx.shadowOffsetY = Math.max(1.5, l.size * 0.08)
+    ctx.fillStyle = l.color === 'white' ? '#ffffff' : '#111111'
+    lines.forEach((ln, li) => ctx.fillText(ln, px, py + li * lineH))
+    ctx.restore()
+
     ctx.lineWidth = Math.max(3, l.size * 0.14)
     ctx.lineJoin = 'round'
     ctx.strokeStyle = l.color === 'white' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)'
@@ -791,8 +801,8 @@ export default function CollagePage() {
                     caretColor: activeLabelObj.color === 'white' ? '#ffffff' : '#111111',
                     textShadow:
                       activeLabelObj.color === 'white'
-                        ? '0 0 3px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.7)'
-                        : '0 0 3px rgba(255,255,255,.85)',
+                        ? '0.08em 0.08em 0.06em rgba(0,0,0,.5), 0 0 3px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.7)'
+                        : '0.08em 0.08em 0.06em rgba(0,0,0,.5), 0 0 3px rgba(255,255,255,.85)',
                   }}
                 />
                 {/* Handle geser (atas-tengah, lebih jauh dari border) */}
