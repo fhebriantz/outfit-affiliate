@@ -63,18 +63,18 @@ export default function ItemRow({
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="label !mb-0">Kode</span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="label !mb-0 shrink-0">Kode</span>
           <input
-            className="input w-20 text-center font-semibold"
+            className="input w-16 shrink-0 text-center font-semibold"
             value={codeDraft}
             placeholder="A 100"
             onChange={(e) => setCodeDraft(e.target.value)}
             onBlur={saveNumber}
           />
           <select
-            className="input w-auto min-w-[120px]"
+            className="input min-w-0 flex-1"
             value={presets.includes(draft.kategori) ? draft.kategori : '__custom'}
             onChange={(e) => {
               const v = e.target.value
@@ -92,7 +92,7 @@ export default function ItemRow({
             <option value="__custom">(lainnya…)</option>
           </select>
         </div>
-        <div className="flex items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-0.5">
           <button
             type="button"
             className="btn-ghost px-2"
