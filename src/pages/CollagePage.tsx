@@ -10,7 +10,7 @@ import { humanizeCanvas, injectIphoneExif } from '../lib/humanize'
 const GAP_ON = 14
 const MAX_ZOOM = 4
 const TEXT_FONT = '"Outfit", sans-serif'
-const TEXT_WEIGHT = 200
+const TEXT_WEIGHT = 300
 
 type Ratio = { key: string; label: string; w: number; h: number }
 const RATIOS: Ratio[] = [
