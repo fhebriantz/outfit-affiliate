@@ -26,7 +26,7 @@ import {
   isPostingSynced,
   parseBulkLinks,
 } from '../lib/format'
-import { expandSourceLink, findExistingByKey, parseShopeeKey } from '../lib/shopee'
+import { expandSourceLink, findExistingByKey, parseShopeeKey, resolveAffiliateLinks } from '../lib/shopee'
 import CopyButton from '../components/CopyButton'
 import SyncBadge from '../components/SyncBadge'
 import ItemRow from '../components/ItemRow'
@@ -45,6 +45,7 @@ export default function PostingEditorPage() {
   const [defaultHashtags, setDefaultHashtags] = useState(DEFAULT_HASHTAGS)
   const [loading, setLoading] = useState(true)
   const [affiliatePaste, setAffiliatePaste] = useState('')
+  const [applyingAff, setApplyingAff] = useState(false)
   const [addingItem, setAddingItem] = useState(false)
   const [imageCount, setImageCount] = useState(0)
   const [sourcePaste, setSourcePaste] = useState('')
@@ -104,16 +105,6 @@ export default function PostingEditorPage() {
         .filter((it) => (showAllSource ? true : !(it.affiliate_link ?? '').trim())),
     [items, showAllSource],
   )
-  // Preview pemetaan: link ke-i akan dipasang ke item tujuan ke-i.
-  const affiliateMapping = useMemo(() => {
-    const links = parseBulkLinks(affiliatePaste)
-    const n = Math.max(links.length, pasteTargets.length)
-    return Array.from({ length: n }, (_, i) => ({
-      link: links[i] ?? null,
-      item: pasteTargets[i] ?? null,
-    }))
-  }, [affiliatePaste, pasteTargets])
-
   // Kumpulan item dari postingan LAIN + item postingan ini (fresh state),
   // dipakai untuk deteksi produk duplikat berdasarkan link Shopee.
   const dedupPool = useMemo(() => {
@@ -372,25 +363,48 @@ export default function PostingEditorPage() {
       toast('Tidak ada item yang menunggu link affiliate', 'err')
       return
     }
-    const n = Math.min(links.length, targets.length)
+    setApplyingAff(true)
     try {
-      await Promise.all(
-        targets.slice(0, n).map((it, i) => updateItem(it.id, { affiliate_link: links[i] })),
-      )
+      // Cocokkan berdasarkan PRODUK (kunci Shopee), bukan urutan.
+      const { byKey } = await resolveAffiliateLinks(links)
+      const assign = new Map<string, string>() // itemId -> link affiliate
+      const usedLinks = new Set<string>()
+      let matched = 0
+      for (const it of targets) {
+        const key = parseShopeeKey(it.source_link)
+        if (key && byKey.has(key)) {
+          const link = byKey.get(key)!
+          assign.set(it.id, link)
+          usedLinks.add(link)
+          matched++
+        }
+      }
+      // Fallback: sisa link (yang produknya tak ketemu) dipasang berurutan ke sisa item.
+      const leftoverLinks = links.map((l) => l.trim()).filter((l) => l && !usedLinks.has(l))
+      const leftoverTargets = targets.filter((it) => !assign.has(it.id))
+      const m = Math.min(leftoverLinks.length, leftoverTargets.length)
+      for (let i = 0; i < m; i++) assign.set(leftoverTargets[i].id, leftoverLinks[i])
+
+      if (assign.size === 0) {
+        toast('Tidak ada link yang cocok ke item di postingan ini', 'err')
+        return
+      }
+      await Promise.all([...assign].map(([id, link]) => updateItem(id, { affiliate_link: link })))
       setItems((prev) =>
-        prev.map((it) => {
-          const i = targets.findIndex((t) => t.id === it.id)
-          return i >= 0 && i < n ? { ...it, affiliate_link: links[i] } : it
-        }),
+        prev.map((it) => (assign.has(it.id) ? { ...it, affiliate_link: assign.get(it.id)! } : it)),
       )
       setAffiliatePaste('')
-      if (links.length !== targets.length) {
-        toast(`Terpasang ${n} link. Jumlah link (${links.length}) ≠ item tujuan (${targets.length})!`, 'err')
-      } else {
-        toast(`${n} link affiliate terpasang`)
-      }
+      const fallback = assign.size - matched
+      const parts = [`${assign.size} link terpasang`]
+      if (matched) parts.push(`${matched} cocok produk`)
+      if (fallback) parts.push(`${fallback} urut`)
+      const leftover = links.length - assign.size
+      const msg = parts.join(' · ') + (leftover > 0 ? ` · ${leftover} link tak terpakai` : '')
+      toast(msg, leftover > 0 ? 'err' : 'ok')
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Gagal menerapkan link', 'err')
+    } finally {
+      setApplyingAff(false)
     }
   }
 
@@ -611,9 +625,10 @@ export default function PostingEditorPage() {
       <section className="card space-y-2">
         <h2 className="text-lg font-bold text-gray-900">2. Tempel hasil link affiliate</h2>
         <p className="text-xs text-gray-500">
-          Paste link affiliate dari Shopee (boleh dipisah baris baru / spasi / koma). Dipasang
-          berurutan ke <strong>item yang ada di bulk copy di atas</strong> ({pasteTargets.length} item
-          {showAllSource ? '' : ' yang belum punya affiliate'}).
+          Paste link affiliate dari Shopee (boleh dipisah baris baru / spasi / koma, <strong>urutan
+          bebas</strong>). Dicocokkan otomatis ke <strong>produk yang sama</strong> di postingan ini
+          ({pasteTargets.length} item{showAllSource ? '' : ' yang belum punya affiliate'}). Link yang
+          gagal dikenali dipasang berurutan sebagai cadangan.
         </p>
         <textarea
           className="input min-h-[90px] font-mono text-sm"
@@ -621,32 +636,12 @@ export default function PostingEditorPage() {
           onChange={(e) => setAffiliatePaste(e.target.value)}
           placeholder={'https://s.shopee.co.id/aaa\nhttps://s.shopee.co.id/bbb'}
         />
-        {/* Preview pemetaan link -> item */}
-        {parseBulkLinks(affiliatePaste).length > 0 && (
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-2">
-            <p className="mb-1 text-xs font-semibold text-gray-500">Preview pemasangan:</p>
-            <ul className="space-y-1">
-              {affiliateMapping.map((m, i) => {
-                const ok = m.link && m.item
-                return (
-                  <li key={i} className="flex items-center gap-2 text-xs">
-                    <span className={ok ? 'text-green-600' : 'text-amber-500'}>{ok ? '→' : '⚠'}</span>
-                    <span className="w-24 shrink-0 text-gray-600">
-                      {m.item ? `${formatItemCode(m.item.my_number)} (${m.item.kategori || 'item'})` : '(tak ada item)'}
-                    </span>
-                    <span className="flex-1 truncate text-gray-400">{m.link ?? '(kurang link)'}</span>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        )}
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-400">
             {parseBulkLinks(affiliatePaste).length} link terdeteksi · {pasteTargets.length} item tujuan
           </span>
-          <button onClick={applyAffiliate} className="btn-secondary">
-            Terapkan ke item
+          <button onClick={applyAffiliate} disabled={applyingAff} className="btn-secondary disabled:opacity-50">
+            {applyingAff ? 'Mencocokkan…' : 'Terapkan ke item'}
           </button>
         </div>
       </section>

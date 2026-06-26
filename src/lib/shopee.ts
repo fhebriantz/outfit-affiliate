@@ -72,6 +72,37 @@ export async function expandSourceLink(raw: string | null | undefined): Promise<
 }
 
 /**
+ * Resolve banyak link affiliate jadi peta { kunciProduk -> link affiliate ASLI }.
+ * Tiap link di-expand (short link -> URL produk) hanya untuk MENGAMBIL kunci produk;
+ * yang disimpan tetap link affiliate asli yang dipaste (supaya tag affiliate-nya utuh).
+ * Link yang tak bisa dikenali sebagai produk Shopee masuk ke `unresolved`.
+ * Diproses paralel dengan batas concurrency agar tidak membanjiri /api/resolve.
+ */
+export async function resolveAffiliateLinks(
+  links: string[],
+  concurrency = 6,
+): Promise<{ byKey: Map<string, string>; unresolved: string[] }> {
+  const byKey = new Map<string, string>()
+  const unresolved: string[] = []
+  const queue = links.map((l) => l.trim()).filter(Boolean)
+  async function worker() {
+    for (;;) {
+      const link = queue.shift()
+      if (!link) return
+      const expanded = await expandSourceLink(link)
+      const key = parseShopeeKey(expanded)
+      if (key) {
+        if (!byKey.has(key)) byKey.set(key, link) // link pertama menang bila ada duplikat
+      } else {
+        unresolved.push(link)
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, worker))
+  return { byKey, unresolved }
+}
+
+/**
  * Cari item lain (di seluruh postingan) yang produknya sama dengan `key`.
  * Prioritaskan yang sudah punya link affiliate, lalu yang paling lama dibuat
  * (jadi nomor & link affiliate yang dipakai ulang konsisten dari yang pertama).
