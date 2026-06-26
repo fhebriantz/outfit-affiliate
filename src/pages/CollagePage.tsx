@@ -126,7 +126,7 @@ const makeSlide = (id: string, layoutKey: string, ratioKey: string): Slide => ({
   ratioKey,
   layoutKey,
   showGap: false,
-  bg: 'white',
+  bg: 'blur',
   slots: layoutOf(layoutKey).cells.map(() => emptySlot()),
   labels: [],
 })
@@ -293,7 +293,7 @@ export default function CollagePage() {
   } | null>(null)
   const nid = () => String(idRef.current++)
 
-  const [slides, setSlides] = useState<Slide[]>([makeSlide('s0', 'cols3', '3:4')])
+  const [slides, setSlides] = useState<Slide[]>([makeSlide('s0', 'full', '3:4')])
   const [current, setCurrent] = useState(0)
   const [selected, setSelected] = useState(0)
   const [activeLabel, setActiveLabel] = useState<string | null>(null)
@@ -492,10 +492,25 @@ export default function CollagePage() {
   // ---------- Gambar ----------
   function assignImage(img: HTMLImageElement) {
     if (selected < 0) return
-    patchSlide((s) => ({
-      ...s,
-      slots: s.slots.map((sl, i) => (i === selected ? { img, scale: 1, offsetX: 0, offsetY: 0 } : sl)),
-    }))
+    patchSlide((s) => {
+      // Default: fit to ratio (gambar utuh, tidak terpotong).
+      const c = layoutOf(s.layoutKey).cells[selected]
+      let scale = 1
+      if (c) {
+        const withImg = { ...s, slots: s.slots.map((sl, i) => (i === selected ? { ...sl, img } : sl)) }
+        const d = slideDims(withImg)
+        const px = cellPx(c, d.w, d.h, s.showGap ? GAP_ON : 0)
+        const iw = img.naturalWidth
+        const ih = img.naturalHeight
+        const cover = Math.max(px.w / iw, px.h / ih)
+        const contain = Math.min(px.w / iw, px.h / ih)
+        scale = Math.max(MIN_ZOOM, contain / cover)
+      }
+      return {
+        ...s,
+        slots: s.slots.map((sl, i) => (i === selected ? { img, scale, offsetX: 0, offsetY: 0 } : sl)),
+      }
+    })
   }
   function onFile(file: File | undefined) {
     if (!file) return
