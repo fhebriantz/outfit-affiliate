@@ -5,9 +5,13 @@ const RUNNINGHUB_URL =
   'https://www.runninghub.ai/ai-detail/2043912413900181506?outputId=2068232595724005377'
 
 // Galeri gambar dasar (public/base) untuk diganti outfit-nya di RunningHub.
-// Unduh memakai link langsung ke file asli -> kualitas 1:1, TANPA kompres.
+// - Section collapse (default tertutup) -> gambar baru di-load saat dibuka, jadi halaman ringan.
+// - Klik thumbnail -> popup/lightbox.
+// - Unduh memakai link langsung ke file asli -> kualitas 1:1, TANPA kompres.
 export default function BaseImagesPanel() {
   const [files, setFiles] = useState<string[]>([])
+  const [open, setOpen] = useState(false)
+  const [preview, setPreview] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/base/manifest.json')
@@ -16,45 +20,95 @@ export default function BaseImagesPanel() {
       .catch(() => setFiles([]))
   }, [])
 
+  // Tutup popup dengan tombol Escape.
+  useEffect(() => {
+    if (!preview) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPreview(null)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [preview])
+
+  const urlOf = (name: string) => `/base/${encodeURIComponent(name)}`
+
   return (
     <section className="card space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-bold text-gray-900">Gambar dasar (ganti outfit)</h2>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-2 text-left text-lg font-bold text-gray-900"
+        >
+          <span className="text-gray-400">{open ? '▾' : '▸'}</span>
+          Gambar dasar (ganti outfit)
+          {files.length > 0 && <span className="text-sm font-normal text-gray-400">({files.length})</span>}
+        </button>
         <a href={RUNNINGHUB_URL} target="_blank" rel="noreferrer" className="btn-primary text-xs">
           Buka RunningHub ↗
         </a>
       </div>
-      <p className="text-xs text-gray-500">
-        Unduh gambar dasar (kualitas asli, tanpa kompres) lalu upload ke RunningHub untuk ganti outfit.
-      </p>
-      {files.length === 0 ? (
-        <p className="text-sm text-gray-400">
-          Belum ada gambar di <code>public/base</code>.
-        </p>
-      ) : (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-          {files.map((name) => {
-            const url = `/base/${encodeURIComponent(name)}`
-            return (
-              <div key={name} className="space-y-1">
-                <a href={url} target="_blank" rel="noreferrer" className="block" title={name}>
-                  <img
-                    src={url}
-                    alt={name}
-                    loading="lazy"
-                    className="aspect-[3/4] w-full rounded-lg object-cover ring-1 ring-gray-200"
-                  />
-                </a>
-                <a
-                  href={url}
-                  download={name}
-                  className="btn-secondary block w-full text-center text-xs"
-                >
-                  Unduh
-                </a>
-              </div>
-            )
-          })}
+
+      {open && (
+        <>
+          <p className="text-xs text-gray-500">
+            Klik gambar untuk perbesar. Unduh = kualitas asli tanpa kompres, lalu upload ke RunningHub.
+          </p>
+          {files.length === 0 ? (
+            <p className="text-sm text-gray-400">
+              Belum ada gambar di <code>public/base</code>.
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {files.map((name) => (
+                <div key={name} className="space-y-1">
+                  <button
+                    onClick={() => setPreview(name)}
+                    className="block w-full"
+                    title={name}
+                  >
+                    <img
+                      src={urlOf(name)}
+                      alt={name}
+                      loading="lazy"
+                      decoding="async"
+                      className="aspect-[3/4] w-full rounded-lg object-cover ring-1 ring-gray-200"
+                    />
+                  </button>
+                  <a
+                    href={urlOf(name)}
+                    download={name}
+                    className="btn-secondary block w-full text-center text-xs"
+                  >
+                    Unduh
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Popup / lightbox */}
+      {preview && (
+        <div
+          onClick={() => setPreview(null)}
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 p-4"
+        >
+          <img
+            src={urlOf(preview)}
+            alt={preview}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[80vh] max-w-full rounded-lg object-contain shadow-2xl"
+          />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="mt-3 flex items-center gap-2"
+          >
+            <a href={urlOf(preview)} download={preview} className="btn-primary text-sm">
+              Unduh kualitas asli
+            </a>
+            <button onClick={() => setPreview(null)} className="btn-secondary text-sm">
+              Tutup
+            </button>
+          </div>
         </div>
       )}
     </section>
