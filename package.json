@@ -4,7 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "gen:base": "node scripts/gen-base-manifest.mjs",
+    "predev": "node scripts/gen-base-manifest.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/gen-base-manifest.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },

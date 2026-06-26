@@ -31,6 +31,7 @@ import CopyButton from '../components/CopyButton'
 import SyncBadge from '../components/SyncBadge'
 import ItemRow from '../components/ItemRow'
 import ImageGallery from '../components/ImageGallery'
+import BaseImagesPanel from '../components/BaseImagesPanel'
 import StageBadges from '../components/StageBadges'
 
 export default function PostingEditorPage() {
@@ -555,6 +556,9 @@ export default function PostingEditorPage() {
           </div>
         )}
       </section>
+
+      {/* Gambar dasar untuk ganti outfit (RunningHub) */}
+      <BaseImagesPanel />
 
       {/* Gambar screenshot referensi */}
       <section className="card space-y-3">
