@@ -201,15 +201,9 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
     lines.forEach((ln, li) => ctx.fillText(ln, px, py + li * lineH))
     ctx.restore()
 
-    ctx.lineWidth = Math.max(3, l.size * 0.14)
-    ctx.lineJoin = 'round'
-    ctx.strokeStyle = l.color === 'white' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.85)'
+    // Teks utama tanpa stroke (cukup bayangan untuk kontras).
     ctx.fillStyle = l.color === 'white' ? '#ffffff' : '#111111'
-    lines.forEach((ln, li) => {
-      const ly = py + li * lineH
-      ctx.strokeText(ln, px, ly)
-      ctx.fillText(ln, px, ly)
-    })
+    lines.forEach((ln, li) => ctx.fillText(ln, px, py + li * lineH))
   }
 }
 
