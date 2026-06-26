@@ -9,6 +9,25 @@ import { humanizeCanvas, injectIphoneExif } from '../lib/humanize'
 
 const GAP_ON = 14
 const MAX_ZOOM = 4
+// Langkah zoom diskrit untuk slider (0.25×) — biar tiap foto bisa disamakan ke step yang sama.
+// Pinch 2 jari tetap bebas/mulus (tidak ikut step ini).
+const ZOOM_STEPS: number[] = (() => {
+  const out: number[] = []
+  for (let z = 1; z <= MAX_ZOOM + 1e-9; z += 0.25) out.push(Math.round(z * 100) / 100)
+  return out
+})()
+const zoomStepIndex = (scale: number): number => {
+  let best = 0
+  let bestD = Infinity
+  ZOOM_STEPS.forEach((z, i) => {
+    const d = Math.abs(z - scale)
+    if (d < bestD) {
+      bestD = d
+      best = i
+    }
+  })
+  return best
+}
 const TEXT_FONT = '"Outfit", sans-serif'
 const TEXT_WEIGHT = 300
 
@@ -897,19 +916,44 @@ export default function CollagePage() {
           </div>
         )}
         <div>
-          <label className="label">
-            Zoom {((slide.slots[selected]?.scale ?? 1)).toFixed(1)}× (cubit 2 jari di gambar juga bisa)
-          </label>
-          <input
-            type="range"
-            min={1}
-            max={MAX_ZOOM}
-            step={0.01}
-            value={slide.slots[selected]?.scale ?? 1}
-            onChange={(e) => setScale(Number(e.target.value))}
-            disabled={!slide.slots[selected]?.img}
-            className="w-full accent-brand-600"
-          />
+          {(() => {
+            const curScale = slide.slots[selected]?.scale ?? 1
+            const curStep = zoomStepIndex(curScale)
+            const hasImg = !!slide.slots[selected]?.img
+            return (
+              <>
+                <label className="label">
+                  Zoom — step {curStep + 1}/{ZOOM_STEPS.length} ({ZOOM_STEPS[curStep].toFixed(2)}×) · cubit 2 jari bebas
+                </label>
+                <input
+                  type="range"
+                  min={0}
+                  max={ZOOM_STEPS.length - 1}
+                  step={1}
+                  value={curStep}
+                  onChange={(e) => setScale(ZOOM_STEPS[Number(e.target.value)])}
+                  disabled={!hasImg}
+                  className="w-full accent-brand-600"
+                />
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {ZOOM_STEPS.map((z, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      disabled={!hasImg}
+                      onClick={() => setScale(z)}
+                      title={`${z.toFixed(2)}×`}
+                      className={`min-w-[22px] rounded px-1.5 py-0.5 text-[10px] tabular-nums disabled:opacity-40 ${
+                        i === curStep ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )
+          })()}
         </div>
       </div>
 
