@@ -9,11 +9,12 @@ import { humanizeCanvas, injectIphoneExif } from '../lib/humanize'
 
 const GAP_ON = 14
 const MAX_ZOOM = 4
+const MIN_ZOOM = 0.3 // zoom out: gambar mengecil dari "cover" -> muncul background di sisanya
 // Langkah zoom diskrit untuk slider (0.05×) — biar tiap foto bisa disamakan ke step yang sama.
 // Pinch 2 jari tetap bebas/mulus (tidak ikut step ini).
 const ZOOM_STEPS: number[] = (() => {
   const out: number[] = []
-  for (let z = 1; z <= MAX_ZOOM + 1e-9; z += 0.05) out.push(Math.round(z * 100) / 100)
+  for (let z = MIN_ZOOM; z <= MAX_ZOOM + 1e-9; z += 0.05) out.push(Math.round(z * 100) / 100)
   return out
 })()
 // iOS (Safari/Chrome di iPhone) auto-zoom halaman saat fokus ke input ber-font < 16px,
@@ -103,11 +104,13 @@ interface Label {
 }
 const DEFAULT_LABEL_TEXT = '•-----A '
 
+type BgKind = 'white' | 'black' | 'blur'
 interface Slide {
   id: string
   ratioKey: string
   layoutKey: string
   showGap: boolean
+  bg: BgKind
   slots: Slot[]
   labels: Label[]
 }
@@ -123,6 +126,7 @@ const makeSlide = (id: string, layoutKey: string, ratioKey: string): Slide => ({
   ratioKey,
   layoutKey,
   showGap: false,
+  bg: 'white',
   slots: layoutOf(layoutKey).cells.map(() => emptySlot()),
   labels: [],
 })
@@ -158,7 +162,7 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
   const H = dims.h
   const gap = slide.showGap ? GAP_ON : 0
   const layout = layoutOf(slide.layoutKey)
-  ctx.fillStyle = '#ffffff'
+  ctx.fillStyle = slide.bg === 'black' ? '#000000' : '#ffffff'
   ctx.fillRect(0, 0, W, H)
   layout.cells.forEach((c, i) => {
     const px = cellPx(c, W, H, gap)
@@ -167,15 +171,31 @@ function drawSlide(ctx: CanvasRenderingContext2D, slide: Slide, dims: { w: numbe
     ctx.beginPath()
     ctx.rect(px.x, px.y, px.w, px.h)
     ctx.clip()
-    ctx.fillStyle = '#f3f4f6'
-    ctx.fillRect(px.x, px.y, px.w, px.h)
     if (slot?.img) {
-      const base = Math.max(px.w / slot.img.naturalWidth, px.h / slot.img.naturalHeight)
+      const iw = slot.img.naturalWidth
+      const ih = slot.img.naturalHeight
+      // Background sel (kelihatan saat gambar di-zoom out / tidak menutup penuh).
+      if (slide.bg === 'blur') {
+        const cover = Math.max(px.w / iw, px.h / ih) * 1.15 // sedikit lebih besar agar blur tak bocor di tepi
+        const bw = iw * cover
+        const bh = ih * cover
+        ctx.save()
+        ctx.filter = `blur(${Math.max(8, px.w * 0.05)}px)`
+        ctx.drawImage(slot.img, px.x + (px.w - bw) / 2, px.y + (px.h - bh) / 2, bw, bh)
+        ctx.restore()
+      } else {
+        ctx.fillStyle = slide.bg === 'black' ? '#000000' : '#ffffff'
+        ctx.fillRect(px.x, px.y, px.w, px.h)
+      }
+      // Gambar utama: cover * scale. scale < 1 -> gambar mengecil, sisanya jadi background.
+      const base = Math.max(px.w / iw, px.h / ih)
       const s = base * slot.scale
-      const dw = slot.img.naturalWidth * s
-      const dh = slot.img.naturalHeight * s
+      const dw = iw * s
+      const dh = ih * s
       ctx.drawImage(slot.img, px.x + (px.w - dw) / 2 + slot.offsetX, px.y + (px.h - dh) / 2 + slot.offsetY, dw, dh)
     } else {
+      ctx.fillStyle = '#f3f4f6'
+      ctx.fillRect(px.x, px.y, px.w, px.h)
       ctx.fillStyle = '#9ca3af'
       ctx.font = '40px sans-serif'
       ctx.textAlign = 'center'
@@ -425,6 +445,7 @@ export default function CollagePage() {
       ratioKey: slide.ratioKey,
       layoutKey: slide.layoutKey,
       showGap: slide.showGap,
+      bg: slide.bg,
       slots: slide.slots.map((s) => ({ ...s })),
       labels: slide.labels.map((l) => ({ ...l, id: nid() })),
     }
@@ -460,6 +481,9 @@ export default function CollagePage() {
   }
   function setShowGap(v: boolean) {
     patchSlide((s) => ({ ...s, showGap: v }))
+  }
+  function setBg(v: BgKind) {
+    patchSlide((s) => ({ ...s, bg: v }))
   }
   function setRatio(key: string) {
     patchSlide((s) => ({ ...s, ratioKey: key }))
@@ -612,7 +636,7 @@ export default function CollagePage() {
     if (pinch.current && pointers.current.size >= 2) {
       const pts = [...pointers.current.values()]
       const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
-      const ns = Math.min(MAX_ZOOM, Math.max(1, (pinch.current.scale * dist) / pinch.current.dist))
+      const ns = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (pinch.current.scale * dist) / pinch.current.dist))
       setScale(ns)
       return
     }
@@ -780,6 +804,21 @@ export default function CollagePage() {
         <input type="checkbox" checked={slide.showGap} onChange={(e) => setShowGap(e.target.checked)} />
         Garis pemisah (jarak putih antar gambar)
       </label>
+
+      <div>
+        <label className="label">Background (saat gambar di-zoom out)</label>
+        <div className="flex flex-wrap gap-2">
+          {([
+            ['white', 'Putih'],
+            ['black', 'Hitam'],
+            ['blur', 'Blur gambar'],
+          ] as const).map(([key, lbl]) => (
+            <button key={key} onClick={() => setBg(key)} className={chip(slide.bg === key)}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="relative mx-auto w-fit max-w-full">
         <canvas
