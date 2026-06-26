@@ -9,11 +9,11 @@ import { humanizeCanvas, injectIphoneExif } from '../lib/humanize'
 
 const GAP_ON = 14
 const MAX_ZOOM = 4
-// Langkah zoom diskrit untuk slider (0.25×) — biar tiap foto bisa disamakan ke step yang sama.
+// Langkah zoom diskrit untuk slider (0.05×) — biar tiap foto bisa disamakan ke step yang sama.
 // Pinch 2 jari tetap bebas/mulus (tidak ikut step ini).
 const ZOOM_STEPS: number[] = (() => {
   const out: number[] = []
-  for (let z = 1; z <= MAX_ZOOM + 1e-9; z += 0.25) out.push(Math.round(z * 100) / 100)
+  for (let z = 1; z <= MAX_ZOOM + 1e-9; z += 0.05) out.push(Math.round(z * 100) / 100)
   return out
 })()
 const zoomStepIndex = (scale: number): number => {
@@ -945,7 +945,7 @@ export default function CollagePage() {
                   disabled={!hasImg}
                   className="w-full accent-brand-600"
                 />
-                <div className="mt-1 flex flex-wrap gap-1">
+                <div className="mt-1 flex gap-1 overflow-x-auto pb-1">
                   {ZOOM_STEPS.map((z, i) => (
                     <button
                       key={i}
@@ -953,7 +953,7 @@ export default function CollagePage() {
                       disabled={!hasImg}
                       onClick={() => setScale(z)}
                       title={`${z.toFixed(2)}×`}
-                      className={`min-w-[22px] rounded px-1.5 py-0.5 text-[10px] tabular-nums disabled:opacity-40 ${
+                      className={`min-w-[22px] shrink-0 rounded px-1.5 py-0.5 text-[10px] tabular-nums disabled:opacity-40 ${
                         i === curStep ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-500'
                       }`}
                     >
