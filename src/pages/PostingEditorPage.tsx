@@ -60,6 +60,10 @@ export default function PostingEditorPage() {
   const [showAllSource, setShowAllSource] = useState(false)
   const [dup, setDup] = useState<{ itemId: string; existing: Item } | null>(null)
   const [creatingPosting, setCreatingPosting] = useState(false)
+  const [postingNav, setPostingNav] = useState<{ prev: Posting | null; next: Posting | null }>({
+    prev: null,
+    next: null,
+  })
 
   async function load() {
     if (!id || !user) return
@@ -80,6 +84,14 @@ export default function PostingEditorPage() {
       setPostingLabels(
         Object.fromEntries(posts.map((x) => [x.id, x.label || formatTanggalIndo(x.tanggal)])),
       )
+      const navPosts = posts.some((x) => x.id === p.id && x.archived_at)
+        ? posts
+        : posts.filter((x) => !x.archived_at)
+      const currentIndex = navPosts.findIndex((x) => x.id === p.id)
+      setPostingNav({
+        prev: currentIndex > 0 ? navPosts[currentIndex - 1] : null,
+        next: currentIndex >= 0 && currentIndex < navPosts.length - 1 ? navPosts[currentIndex + 1] : null,
+      })
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Gagal memuat postingan', 'err')
     } finally {
@@ -443,6 +455,22 @@ export default function PostingEditorPage() {
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => navigate('/')} className="btn-ghost">
             ← Kembali
+          </button>
+          <button
+            onClick={() => postingNav.prev && navigate(`/posting/${postingNav.prev.id}`)}
+            disabled={!postingNav.prev}
+            className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            title={postingNav.prev ? postingNav.prev.label || formatTanggalIndo(postingNav.prev.tanggal) : ''}
+          >
+            ← Prev post
+          </button>
+          <button
+            onClick={() => postingNav.next && navigate(`/posting/${postingNav.next.id}`)}
+            disabled={!postingNav.next}
+            className="btn-secondary disabled:cursor-not-allowed disabled:opacity-50"
+            title={postingNav.next ? postingNav.next.label || formatTanggalIndo(postingNav.next.tanggal) : ''}
+          >
+            Next post →
           </button>
           <button onClick={createNewPosting} disabled={creatingPosting} className="btn-primary">
             {creatingPosting ? 'Membuat…' : '+ Postingan baru'}
