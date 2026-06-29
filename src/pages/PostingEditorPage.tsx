@@ -4,18 +4,20 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import {
   createItem,
+  createPosting,
   deleteItem as dbDeleteItem,
   getPosting,
   getSettings,
   listAllItems,
   listItems,
   listPostings,
+  reserveFolderNumber,
   reserveNumbers,
   updateItem,
   updatePosting,
 } from '../lib/db'
 import type { Item, Posting, PostingStatus } from '../lib/types'
-import { DEFAULT_HASHTAGS, DEFAULT_KATEGORI } from '../lib/types'
+import { DEFAULT_HASHTAGS, DEFAULT_KATEGORI, DEFAULT_TITLE } from '../lib/types'
 import {
   buildCaption,
   buildSourceBulk,
@@ -24,7 +26,9 @@ import {
   formatItemCode,
   formatTanggalIndo,
   isPostingSynced,
+  padFolderLabel,
   parseBulkLinks,
+  todayISO,
 } from '../lib/format'
 import { expandSourceLink, findExistingByKey, parseShopeeKey, resolveAffiliateLinks } from '../lib/shopee'
 import CopyButton from '../components/CopyButton'
@@ -55,6 +59,7 @@ export default function PostingEditorPage() {
   const [postingLabels, setPostingLabels] = useState<Record<string, string>>({})
   const [showAllSource, setShowAllSource] = useState(false)
   const [dup, setDup] = useState<{ itemId: string; existing: Item } | null>(null)
+  const [creatingPosting, setCreatingPosting] = useState(false)
 
   async function load() {
     if (!id || !user) return
@@ -83,6 +88,7 @@ export default function PostingEditorPage() {
   }
 
   useEffect(() => {
+    setCreatingPosting(false)
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user?.id])
@@ -140,6 +146,24 @@ export default function PostingEditorPage() {
   const synced = isPostingSynced(checks)
 
   // ---------- Postingan ----------
+  async function createNewPosting() {
+    if (!user) return
+    setCreatingPosting(true)
+    try {
+      const p = await createPosting(user.id, {
+        tanggal: todayISO(),
+        label: padFolderLabel(await reserveFolderNumber(user.id)),
+        catatan: DEFAULT_TITLE,
+        status: 'draft',
+      })
+      toast('Postingan baru dibuat')
+      navigate(`/posting/${p.id}`)
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'Gagal membuat postingan', 'err')
+      setCreatingPosting(false)
+    }
+  }
+
   async function savePosting(patch: Partial<Posting>) {
     if (!posting) return
     setPosting({ ...posting, ...patch })
@@ -416,9 +440,14 @@ export default function PostingEditorPage() {
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <button onClick={() => navigate('/')} className="btn-ghost">
-          ← Kembali
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => navigate('/')} className="btn-ghost">
+            ← Kembali
+          </button>
+          <button onClick={createNewPosting} disabled={creatingPosting} className="btn-primary">
+            {creatingPosting ? 'Membuat…' : '+ Postingan baru'}
+          </button>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <StageBadges stage={computePostingStage(posting, imageCount, items)} imageCount={imageCount} />
           <SyncBadge synced={synced} size="md" />
