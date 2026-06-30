@@ -95,9 +95,9 @@ export function buildSourceBulk(items: Item[], opts: { onlyPending?: boolean } =
 
 /** Blok info cara order yang dipasang sebelum hashtag. */
 export const ORDER_INFO = `Cara order
-1. Klik link di bio profil aku
-2. Cari nomor produk sesuai yang aku tulis di atas
-3. Klik produknya aja nanti kalian akan di arahin ke halaman checkout`
+1. Klik link di bio
+2. Klik Titik 3 Kanan Atas, pilih "Buka di browser"
+3. Cari Produk sesuai nomor katalog, lalu Checkout`
 
 /**
  * Susun caption TikTok sesuai template:
