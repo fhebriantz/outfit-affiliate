@@ -163,7 +163,8 @@ export function buildCaption(
     .sort((a, b) => a.urutan - b.urutan)
     .map((it) => {
       const kat = (it.kategori ?? 'item').trim() || 'item'
-      return `-${kat} : no ${itemCode(it)}`
+      const katCap = kat.charAt(0).toUpperCase() + kat.slice(1)
+      return `${katCap} __ ${itemCode(it).toUpperCase()}`
     })
   // Tiap section dipisah 1 baris kosong (join '\n\n'); di dalam section tetap '\n'.
   const sections: string[] = []
@@ -204,7 +205,8 @@ export function buildMultiCaption(
       .sort((a, b) => a.urutan - b.urutan)
       .map((it) => {
         const kat = (it.kategori ?? 'item').trim() || 'item'
-        return `-${kat} : no ${itemCode(it)}`
+        const katCap = kat.charAt(0).toUpperCase() + kat.slice(1)
+        return `${katCap} __ ${itemCode(it).toUpperCase()}`
       })
     const head = `Slide ${i + 1} :${s.label && s.label.trim() ? ` (${s.label.trim()})` : ''}`
     sections.push([head, ...baris].join('\n'))
