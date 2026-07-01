@@ -31,7 +31,13 @@ import {
   parseBulkLinks,
   todayISO,
 } from '../lib/format'
-import { expandSourceLink, findExistingByKey, parseShopeeKey, resolveAffiliateLinks } from '../lib/shopee'
+import {
+  canonicalShopeeUrl,
+  expandSourceLink,
+  findExistingByKey,
+  parseShopeeKey,
+  resolveAffiliateLinks,
+} from '../lib/shopee'
 import CopyButton from '../components/CopyButton'
 import SyncBadge from '../components/SyncBadge'
 import ItemRow from '../components/ItemRow'
@@ -56,6 +62,7 @@ export default function PostingEditorPage() {
   const [imageCount, setImageCount] = useState(0)
   const [sourcePaste, setSourcePaste] = useState('')
   const [addingBulk, setAddingBulk] = useState(false)
+  const [affiliateMode, setAffiliateMode] = useState(false)
   const [allItems, setAllItems] = useState<Item[]>([])
   const [postingLabels, setPostingLabels] = useState<Record<string, string>>({})
   const [showAllSource, setShowAllSource] = useState(false)
@@ -221,21 +228,28 @@ export default function PostingEditorPage() {
     setAddingBulk(true)
     try {
       // Perluas short link Shopee dulu (paralel) supaya deteksi duplikat akurat.
-      const links = await Promise.all(rawLinks.map((l) => expandSourceLink(l)))
+      // expanded dipakai untuk kunci produk; rawLinks[i] = link asli yang dipaste.
+      const expanded = await Promise.all(rawLinks.map((l) => expandSourceLink(l)))
       let urutan = items.reduce((m, it) => Math.max(m, it.urutan), 0) + 1
       const pool = [...dedupPool]
       const created: Item[] = []
       let reusedCount = 0
-      for (const link of links) {
+      for (let i = 0; i < expanded.length; i++) {
+        const exp = expanded[i]
+        const raw = rawLinks[i]
+        const key = parseShopeeKey(exp)
+        // Mode affiliate: link yang dipaste = link affiliate-ku; sumber diturunkan dari produk.
+        // Mode biasa: link yang dipaste = link sumber.
+        const source = affiliateMode ? canonicalShopeeUrl(exp) ?? '' : exp
         let myNumber: number
-        let affiliate: string | null = null
+        let affiliate: string | null = affiliateMode ? raw : null
         let kategori = ''
         let code: string
-        const key = parseShopeeKey(link)
         const ex = key ? findExistingByKey(pool, key, '') : null
         if (ex) {
           myNumber = ex.my_number
-          affiliate = (ex.affiliate_link ?? '').trim() ? ex.affiliate_link : null
+          // Di mode affiliate, pakai link affiliate yang dipaste; kalau tidak, warisi dari produk lama.
+          if (!affiliateMode) affiliate = (ex.affiliate_link ?? '').trim() ? ex.affiliate_link : null
           kategori = ex.kategori ?? '' // autofill kategori dari produk yang sudah ada
           code = itemCode(ex) // reuse -> kode ikut produk aslinya (mis. 031c)
           reusedCount++
@@ -251,7 +265,7 @@ export default function PostingEditorPage() {
           my_number: myNumber,
           ref_code: code,
           kategori,
-          source_link: link,
+          source_link: source,
           affiliate_link: affiliate,
         })
         urutan++
@@ -260,7 +274,8 @@ export default function PostingEditorPage() {
       }
       setItems((prev) => [...prev, ...created])
       setSourcePaste('')
-      toast(`${created.length} item dibuat${reusedCount ? `, ${reusedCount} reuse` : ''}`)
+      const modeMsg = affiliateMode ? ' (link affiliate terisi)' : ''
+      toast(`${created.length} item dibuat${reusedCount ? `, ${reusedCount} reuse` : ''}${modeMsg}`)
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Gagal membuat item', 'err')
     } finally {
@@ -574,15 +589,27 @@ export default function PostingEditorPage() {
           </button>
         </div>
 
-        {/* Bulk: tempel banyak link sumber sekaligus */}
+        {/* Bulk: tempel banyak link sekaligus */}
         <div className="rounded-xl border border-dashed border-brand-200 bg-brand-50/40 p-3">
-          <label className="label">Tempel link sumber sekaligus (1 link per baris)</label>
+          <label className="label">
+            {affiliateMode
+              ? 'Tempel link affiliate pribadi sekaligus (1 link per baris)'
+              : 'Tempel link sumber sekaligus (1 link per baris)'}
+          </label>
           <textarea
             className="input min-h-[80px] font-mono text-xs"
             value={sourcePaste}
             onChange={(e) => setSourcePaste(e.target.value)}
             placeholder={'https://shopee.co.id/product/260200399/44553924496\nhttps://shopee.co.id/product/28406065/44658304201'}
           />
+          <label className="mt-2 flex items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={affiliateMode}
+              onChange={(e) => setAffiliateMode(e.target.checked)}
+            />
+            Dari Link Affiliate Pribadi (link affiliate langsung terisi dari yang dipaste)
+          </label>
           <div className="mt-2 flex items-center justify-between">
             <span className="text-xs text-gray-400">
               {parseBulkLinks(sourcePaste).length} link · nomor, duplikat & short link otomatis
