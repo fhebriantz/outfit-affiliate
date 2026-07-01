@@ -658,17 +658,10 @@ export default function PostingEditorPage() {
         <ImageGallery postingId={posting.id} userId={posting.user_id} onCountChange={setImageCount} />
       </section>
 
-      {/* Link Google Drive (hasil generate) */}
+      {/* Status hasil generate (Google Drive) */}
       <section className="card space-y-2">
-        <h2 className="text-lg font-bold text-gray-900">Link Google Drive (hasil generate)</h2>
-        <div className="flex gap-1">
-          <input
-            className="input"
-            value={posting.drive_url ?? ''}
-            onChange={(e) => setPosting({ ...posting, drive_url: e.target.value })}
-            onBlur={(e) => savePosting({ drive_url: e.target.value || null })}
-            placeholder="https://drive.google.com/drive/folders/..."
-          />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-bold text-gray-900">Hasil generate (Google Drive)</h2>
           <button
             type="button"
             onClick={openDrive}
@@ -678,20 +671,18 @@ export default function PostingEditorPage() {
             Buka Drive
           </button>
         </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={Boolean((posting.drive_url ?? '').trim())}
+            onChange={(e) => savePosting({ drive_url: e.target.checked ? 'done' : null })}
+          />
+          Sudah di-generate
+        </label>
         <p className="text-xs text-gray-400">
-          Tombol “Buka Drive” menyalin nama folder ({posting.label || formatTanggalIndo(posting.tanggal)})
-          ke clipboard — tinggal bikin folder, paste namanya, lalu salin link folder ke sini.
+          Hasil generate disimpan di 1 folder Drive yang sama. Tombol “Buka Drive” menyalin nama folder
+          ({posting.label || formatTanggalIndo(posting.tanggal)}) ke clipboard.
         </p>
-        {posting.drive_url && (
-          <a
-            href={posting.drive_url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm font-medium text-sec-700 hover:underline"
-          >
-            Buka folder Drive ↗
-          </a>
-        )}
       </section>
 
       {/* Bulk link sumber */}
