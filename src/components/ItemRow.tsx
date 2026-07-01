@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { Item } from '../lib/types'
-import { formatItemCode, parseItemCode } from '../lib/format'
+import { itemCode } from '../lib/format'
 
 interface Props {
   item: Item
   presets: string[]
   index: number
-  dup?: { number: number; label: string; consistent: boolean } | null
+  dup?: { code: string; label: string; consistent: boolean } | null
   onSave: (patch: Partial<Item>) => void
   onDelete: () => void
   onMove: (dir: -1 | 1) => void
@@ -47,14 +47,14 @@ export default function ItemRow({
     })
   }, [item.my_number, item.kategori, item.ref_code, item.source_link, item.affiliate_link])
 
-  // Kode katalog (mis. "A 100") yang ditampilkan & diedit di kolom No.
-  const [codeDraft, setCodeDraft] = useState(formatItemCode(item.my_number))
-  useEffect(() => setCodeDraft(formatItemCode(item.my_number)), [item.my_number])
+  // Kode katalog per-postingan (mis. "045a") yang ditampilkan & diedit di kolom Kode.
+  const [codeDraft, setCodeDraft] = useState(itemCode(item))
+  useEffect(() => setCodeDraft(itemCode(item)), [item.ref_code, item.my_number])
 
   function saveNumber() {
-    const n = parseItemCode(codeDraft)
-    if (n != null && n !== item.my_number) onSave({ my_number: n })
-    else setCodeDraft(formatItemCode(item.my_number))
+    const v = codeDraft.trim()
+    if (v && v !== (item.ref_code ?? '').trim()) onSave({ ref_code: v })
+    else setCodeDraft(itemCode(item))
   }
   function saveField(field: keyof typeof draft, value: string) {
     const current = (item[field] as string | null) ?? ''
@@ -69,7 +69,7 @@ export default function ItemRow({
           <input
             className="input w-16 shrink-0 text-center font-semibold"
             value={codeDraft}
-            placeholder="A 100"
+            placeholder="045a"
             onChange={(e) => setCodeDraft(e.target.value)}
             onBlur={saveNumber}
           />
@@ -158,8 +158,8 @@ export default function ItemRow({
               }
             >
               {dup.consistent
-                ? `♻ Produk sama dengan ${formatItemCode(dup.number)} — sudah dipakai ulang`
-                : `⚠ Produk sama dengan ${formatItemCode(dup.number)} (${dup.label}) — sebaiknya pakai ulang`}
+                ? `♻ Produk sama dengan ${dup.code} — sudah dipakai ulang`
+                : `⚠ Produk sama dengan ${dup.code} (${dup.label}) — sebaiknya pakai ulang`}
             </p>
           )}
         </div>

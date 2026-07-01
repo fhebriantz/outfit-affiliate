@@ -23,9 +23,10 @@ import {
   buildSourceBulk,
   computePostingStage,
   computeSyncChecks,
-  formatItemCode,
   formatTanggalIndo,
   isPostingSynced,
+  itemCode,
+  nextItemCode,
   padFolderLabel,
   parseBulkLinks,
   todayISO,
@@ -133,16 +134,16 @@ export default function PostingEditorPage() {
 
   // Hint per item: apakah produknya sama dengan item lain yang sudah ada?
   const dupHints = useMemo(() => {
-    const map: Record<string, { number: number; label: string; consistent: boolean }> = {}
+    const map: Record<string, { code: string; label: string; consistent: boolean }> = {}
     for (const it of items) {
       const key = parseShopeeKey(it.source_link)
       if (!key) continue
       const match = findExistingByKey(dedupPool, key, it.id)
       if (!match) continue
       map[it.id] = {
-        number: match.my_number,
+        code: itemCode(match),
         label: postingLabels[match.posting_id] ?? 'postingan lain',
-        consistent: match.my_number === it.my_number,
+        consistent: (match.ref_code ?? '').trim() === (it.ref_code ?? '').trim(),
       }
     }
     return map
@@ -197,6 +198,7 @@ export default function PostingEditorPage() {
         posting_id: posting.id,
         urutan: maxUrutan + 1,
         my_number: myNumber,
+        ref_code: nextItemCode(posting.label, items),
         kategori: presets[0] ?? '',
       })
       setItems((prev) => [...prev, created])
@@ -228,21 +230,26 @@ export default function PostingEditorPage() {
         let myNumber: number
         let affiliate: string | null = null
         let kategori = ''
+        let code: string
         const key = parseShopeeKey(link)
         const ex = key ? findExistingByKey(pool, key, '') : null
         if (ex) {
           myNumber = ex.my_number
           affiliate = (ex.affiliate_link ?? '').trim() ? ex.affiliate_link : null
           kategori = ex.kategori ?? '' // autofill kategori dari produk yang sudah ada
+          code = itemCode(ex) // reuse -> kode ikut produk aslinya (mis. 031c)
           reusedCount++
         } else {
           // Produk baru -> pesan 1 nomor dari counter (tidak terpengaruh penghapusan).
           myNumber = await reserveNumbers(user.id, 1)
+          // Kode native berikutnya: {label}{huruf}, lanjut dari item native yang sudah ada + yang baru dibuat.
+          code = nextItemCode(posting.label, [...items, ...created])
         }
         const item = await createItem(user.id, {
           posting_id: posting.id,
           urutan,
           my_number: myNumber,
+          ref_code: code,
           kategori,
           source_link: link,
           affiliate_link: affiliate,
@@ -286,7 +293,7 @@ export default function PostingEditorPage() {
     // Sebarkan perubahan field produk ke item lain (postingan lain) yang produknya
     // sama (link sumber sama). urutan TIDAK ikut (itu khusus per-postingan).
     const propPatch: Partial<Item> = {}
-    for (const f of ['kategori', 'source_link', 'affiliate_link', 'my_number'] as const) {
+    for (const f of ['kategori', 'source_link', 'affiliate_link', 'my_number', 'ref_code'] as const) {
       if (f in patch) (propPatch as Record<string, unknown>)[f] = patch[f]
     }
     if (oldKey && Object.keys(propPatch).length > 0) {
@@ -321,10 +328,10 @@ export default function PostingEditorPage() {
             )
             updateItem(itemId, { kategori: existing.kategori }).catch(() => {})
           }
-          const numberDiffers = existing.my_number !== current?.my_number
+          const codeDiffers = (existing.ref_code ?? '').trim() !== (current?.ref_code ?? '').trim()
           const existingAff = (existing.affiliate_link ?? '').trim()
           const affDiffers = Boolean(existingAff) && existingAff !== (current?.affiliate_link ?? '')
-          if (numberDiffers || affDiffers) setDup({ itemId, existing })
+          if (codeDiffers || affDiffers) setDup({ itemId, existing })
         }
       }
     }
@@ -348,10 +355,11 @@ export default function PostingEditorPage() {
   function reuseExisting() {
     if (!dup) return
     const patch: Partial<Item> = { my_number: dup.existing.my_number }
+    if ((dup.existing.ref_code ?? '').trim()) patch.ref_code = dup.existing.ref_code
     if ((dup.existing.affiliate_link ?? '').trim()) patch.affiliate_link = dup.existing.affiliate_link
     if ((dup.existing.kategori ?? '').trim()) patch.kategori = dup.existing.kategori
     saveItem(dup.itemId, patch)
-    toast(`Pakai ulang ${formatItemCode(dup.existing.my_number)}`)
+    toast(`Pakai ulang ${itemCode(dup.existing)}`)
     setDup(null)
   }
 
@@ -749,7 +757,7 @@ export default function PostingEditorPage() {
             <p className="mt-2 text-sm text-gray-600">
               Link produk yang sama sudah ada di{' '}
               <span className="font-semibold">{postingLabels[dup.existing.posting_id] ?? 'postingan lain'}</span>{' '}
-              dengan <span className="font-semibold">kode {formatItemCode(dup.existing.my_number)}</span>
+              dengan <span className="font-semibold">kode {itemCode(dup.existing)}</span>
               {dup.existing.kategori ? ` (${dup.existing.kategori})` : ''}.
             </p>
             {(dup.existing.affiliate_link ?? '').trim() && (
@@ -762,7 +770,7 @@ export default function PostingEditorPage() {
             </p>
             <div className="mt-4 flex gap-2">
               <button onClick={reuseExisting} className="btn-primary flex-1">
-                Pakai ulang {formatItemCode(dup.existing.my_number)}
+                Pakai ulang {itemCode(dup.existing)}
               </button>
               <button onClick={() => setDup(null)} className="btn-secondary flex-1">
                 Tetap buat baru

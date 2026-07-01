@@ -3,18 +3,15 @@ import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { getSettings, importBackup, listAllItems, listPostings, saveSettings } from '../lib/db'
 import { listAllImages } from '../lib/images'
-import { formatItemCode, parseItemCode } from '../lib/format'
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const { toast } = useToast()
   const [hashtags, setHashtags] = useState('')
   const [kategori, setKategori] = useState('')
-  const [nextStart, setNextStart] = useState('')
   const [nextFolder, setNextFolder] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [savingNum, setSavingNum] = useState(false)
   const [savingFolder, setSavingFolder] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -26,7 +23,6 @@ export default function SettingsPage() {
       .then((s) => {
         setHashtags(s.default_hashtags)
         setKategori(s.kategori_presets.join(', '))
-        setNextStart(formatItemCode((s.last_number ?? 0) + 1))
         setNextFolder(String((s.last_folder ?? 0) + 1))
       })
       .catch((e) => toast(e instanceof Error ? e.message : 'Gagal memuat pengaturan', 'err'))
@@ -51,25 +47,6 @@ export default function SettingsPage() {
       toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'err')
     } finally {
       setSaving(false)
-    }
-  }
-
-  async function saveNextStart() {
-    if (!user) return
-    const n = parseItemCode(nextStart)
-    if (n == null) {
-      toast('Format kode salah (contoh: A 100)', 'err')
-      return
-    }
-    setSavingNum(true)
-    try {
-      // Item berikutnya = last_number + 1, jadi simpan last_number = n - 1.
-      await saveSettings(user.id, { last_number: n - 1 })
-      toast(`Item berikutnya akan mulai dari kode ${formatItemCode(n)}`)
-    } catch (e) {
-      toast(e instanceof Error ? e.message : 'Gagal menyimpan', 'err')
-    } finally {
-      setSavingNum(false)
     }
   }
 
@@ -185,28 +162,10 @@ export default function SettingsPage() {
 
       <div className="card space-y-3">
         <div>
-          <h2 className="font-bold text-gray-900">Counter nomor &amp; label</h2>
+          <h2 className="font-bold text-gray-900">Counter label postingan</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Atur nomor item & label folder untuk postingan/item berikutnya. Berguna kalau banyak yang
-            dihapus/diarsip dan kamu ingin melanjutkan dari nomor tertentu.
-          </p>
-        </div>
-        <div>
-          <label className="label">Item berikutnya mulai dari kode</label>
-          <div className="flex gap-2">
-            <input
-              className="input w-40"
-              value={nextStart}
-              placeholder="A 100"
-              onChange={(e) => setNextStart(e.target.value)}
-            />
-            <button onClick={saveNextStart} disabled={savingNum} className="btn-secondary">
-              {savingNum ? 'Menyimpan…' : 'Set'}
-            </button>
-          </div>
-          <p className="mt-1 text-xs text-gray-400">
-            Format kode: huruf + 3 digit (A 100 … A 999, lalu B 100 …). Demi keamanan, kalau masih ada
-            item dengan kode lebih tinggi, sistem otomatis melanjutkan dari yang tertinggi.
+            Label postingan (mis. <code>045</code>) juga jadi prefix kode item (<code>045a</code>,{' '}
+            <code>045b</code>…). Atur nomor berikutnya kalau perlu melanjutkan dari angka tertentu.
           </p>
         </div>
 

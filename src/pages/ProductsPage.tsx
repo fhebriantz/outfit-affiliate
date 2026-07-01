@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 import { listAllItems, listPostings, updateItem } from '../lib/db'
 import { parseShopeeKey } from '../lib/shopee'
-import { formatItemCode, formatTanggalIndo, parseItemCode } from '../lib/format'
+import { formatTanggalIndo, itemCode } from '../lib/format'
 import type { Item } from '../lib/types'
 import CopyButton from '../components/CopyButton'
 
@@ -15,20 +15,20 @@ interface Product {
   lastTanggal: string
 }
 
-// Input kode katalog (mis. "A 100") yang bisa diedit; simpan saat blur.
-function ProductNumber({ value, onSave }: { value: number; onSave: (n: number) => void }) {
-  const [v, setV] = useState(formatItemCode(value))
-  useEffect(() => setV(formatItemCode(value)), [value])
+// Input kode katalog (mis. "045a") yang bisa diedit; simpan saat blur.
+function ProductNumber({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [v, setV] = useState(value)
+  useEffect(() => setV(value), [value])
   return (
     <input
       value={v}
       onChange={(e) => setV(e.target.value)}
       onBlur={() => {
-        const n = parseItemCode(v)
-        if (n != null && n !== value) onSave(n)
-        else setV(formatItemCode(value))
+        const t = v.trim()
+        if (t && t !== value) onSave(t)
+        else setV(value)
       }}
-      title="Ubah kode katalog (mis. A 100)"
+      title="Ubah kode katalog (mis. 045a)"
       className="h-9 w-16 shrink-0 rounded-lg bg-brand-50 text-center text-sm font-bold text-brand-700 outline-none focus:ring-2 focus:ring-brand-300"
     />
   )
@@ -120,7 +120,7 @@ export default function ProductsPage() {
             lastTanggal: tanggalById[lastId] ?? '',
           }
         })
-        list.sort((a, b) => a.rep.my_number - b.rep.my_number)
+        list.sort((a, b) => itemCode(a.rep).localeCompare(itemCode(b.rep), 'id', { numeric: true }))
         setProducts(list)
       } catch (e) {
         toast(e instanceof Error ? e.message : 'Gagal memuat produk', 'err')
@@ -143,12 +143,9 @@ export default function ProductsPage() {
     else if (affFilter === 'without') list = list.filter((p) => !hasAffOf(p))
     const q = query.trim().toLowerCase()
     if (!q) return list
-    // Kode lengkap (mis. "A 100") -> cocok PERSIS.
-    const asCode = parseItemCode(q)
-    if (asCode != null) return list.filter((p) => p.rep.my_number === asCode)
-    // Lainnya -> cari di kode, kategori, link, & label.
+    // Cari di kode, kategori, link, & label.
     return list.filter((p) =>
-      [formatItemCode(p.rep.my_number), p.rep.kategori, p.rep.source_link, p.rep.affiliate_link, p.lastLabel]
+      [itemCode(p.rep), p.rep.kategori, p.rep.source_link, p.rep.affiliate_link, p.lastLabel]
         .filter(Boolean)
         .join(' ')
         .toLowerCase()
@@ -176,9 +173,9 @@ export default function ProductsPage() {
     }
   }
 
-  function saveNumber(prod: Product, n: number) {
-    updateGroup(prod, { my_number: n }).then(() =>
-      toast(`Kode diubah ke ${formatItemCode(n)} (${prod.count} item)`),
+  function saveNumber(prod: Product, code: string) {
+    updateGroup(prod, { ref_code: code }).then(() =>
+      toast(`Kode diubah ke ${code} (${prod.count} item)`),
     )
   }
   function saveLink(prod: Product, field: 'source_link' | 'affiliate_link', value: string) {
@@ -246,7 +243,7 @@ export default function ProductsPage() {
             return (
               <div key={p.key} className="card space-y-2 p-3">
                 <div className="flex items-center gap-3">
-                  <ProductNumber value={p.rep.my_number} onSave={(n) => saveNumber(p, n)} />
+                  <ProductNumber value={itemCode(p.rep)} onSave={(c) => saveNumber(p, c)} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">

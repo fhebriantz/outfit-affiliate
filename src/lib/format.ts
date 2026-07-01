@@ -55,6 +55,48 @@ export function parseItemCode(s: string | null | undefined): number | null {
   return letter * CODE_PER_LETTER + (num - CODE_MIN) + 1
 }
 
+// ---------- Kode per-postingan: "045a", "045b", ... ----------
+// Huruf urutan: 0->a, 25->z, 26->aa, 27->ab, ...
+export function letterSuffix(i: number): string {
+  let n = Math.max(0, Math.floor(i))
+  let s = ''
+  for (;;) {
+    s = String.fromCharCode(97 + (n % 26)) + s
+    n = Math.floor(n / 26) - 1
+    if (n < 0) break
+  }
+  return s
+}
+
+/** Apakah `code` adalah kode native untuk postingan berlabel `prefix` (mis. "045a" utk "045")? */
+export function isNativeCode(code: string | null | undefined, prefix: string): boolean {
+  const c = (code ?? '').trim().toLowerCase()
+  const p = (prefix ?? '').trim().toLowerCase()
+  if (!p || !c.startsWith(p)) return false
+  const rest = c.slice(p.length)
+  return rest.length > 0 && /^[a-z]+$/.test(rest)
+}
+
+/**
+ * Kode berikutnya untuk produk BARU di sebuah postingan: {label}{huruf}.
+ * Huruf = jumlah item native (kode berawalan label) yang sudah ada di postingan itu.
+ * Produk reuse (kode berawalan label postingan lain) tidak ikut menambah huruf.
+ */
+export function nextItemCode(
+  postingLabel: string | null | undefined,
+  existingItems: { ref_code: string | null }[],
+): string {
+  const prefix = (postingLabel ?? '').trim()
+  const nativeCount = existingItems.filter((it) => isNativeCode(it.ref_code, prefix)).length
+  return prefix + letterSuffix(nativeCount)
+}
+
+/** Kode katalog yang ditampilkan untuk sebuah item. Fallback ke kode lama (A 100) bila belum ada. */
+export function itemCode(item: { ref_code: string | null; my_number: number }): string {
+  const c = (item.ref_code ?? '').trim()
+  return c || formatItemCode(item.my_number)
+}
+
 /** Tanggal hari ini dalam format "YYYY-MM-DD" (zona waktu lokal). */
 export function todayISO(): string {
   const now = new Date()
@@ -121,7 +163,7 @@ export function buildCaption(
     .sort((a, b) => a.urutan - b.urutan)
     .map((it) => {
       const kat = (it.kategori ?? 'item').trim() || 'item'
-      return `-${kat} : no ${formatItemCode(it.my_number)}`
+      return `-${kat} : no ${itemCode(it)}`
     })
   // Tiap section dipisah 1 baris kosong (join '\n\n'); di dalam section tetap '\n'.
   const sections: string[] = []
@@ -162,7 +204,7 @@ export function buildMultiCaption(
       .sort((a, b) => a.urutan - b.urutan)
       .map((it) => {
         const kat = (it.kategori ?? 'item').trim() || 'item'
-        return `-${kat} : no ${formatItemCode(it.my_number)}`
+        return `-${kat} : no ${itemCode(it)}`
       })
     const head = `Slide ${i + 1} :${s.label && s.label.trim() ? ` (${s.label.trim()})` : ''}`
     sections.push([head, ...baris].join('\n'))
