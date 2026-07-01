@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useToast } from '../context/ToastContext'
 import { useAuth } from '../context/AuthContext'
 import { getSettings, listAllItems, listPostings } from '../lib/db'
-import { buildCaption, buildMultiCaption, formatTanggalIndo } from '../lib/format'
+import { buildCaption, buildMultiCaption, formatTanggalIndo, itemCode } from '../lib/format'
 import { DEFAULT_HASHTAGS } from '../lib/types'
 import type { Item, Posting } from '../lib/types'
 import { humanizeCanvas, injectIphoneExif } from '../lib/humanize'
@@ -563,6 +563,34 @@ export default function CollagePage() {
     setEditing(true)
     // Scroll ke gambar supaya teks baru langsung terlihat (tombol tambah ada di bawah).
     setTimeout(() => canvasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
+  }
+  // Tambah beberapa layer teks otomatis dari detail outfit postingan caption terpilih.
+  function addAutoText() {
+    const chosenItems = captionPostingIds
+      .flatMap((id) => itemsByPosting[id] ?? [])
+      .slice()
+      .sort((a, b) => a.urutan - b.urutan)
+    if (chosenItems.length === 0) {
+      toast('Pilih postingan caption dulu (yang ada itemnya)', 'err')
+      return
+    }
+    const newLabels: Label[] = chosenItems.map((it, i) => {
+      const kat = (it.kategori ?? 'item').trim() || 'item'
+      const katCap = kat.charAt(0).toUpperCase() + kat.slice(1)
+      return {
+        id: nid(),
+        text: `${katCap} __ ${itemCode(it).toUpperCase()}`,
+        x: 0.1,
+        y: 0.15 + (i % 8) * 0.09, // ditumpuk turun; kalau banyak, mulai kolom baru
+        size: 32,
+        color: 'white' as const,
+      }
+    })
+    patchSlide((s) => ({ ...s, labels: [...s.labels, ...newLabels] }))
+    setActiveLabel(null)
+    setEditing(false)
+    setTimeout(() => canvasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
+    toast(`${newLabels.length} teks ditambahkan — tinggal geser posisinya`)
   }
   function updateLabel(patch: Partial<Label>) {
     if (!activeLabel) return
@@ -1173,6 +1201,12 @@ export default function CollagePage() {
               )
             })}
           </ul>
+        )}
+
+        {captionPostingIds.length > 0 && (
+          <button onClick={addAutoText} className="btn-secondary mt-2 w-full">
+            + Tambah Auto Text (dari detail outfit)
+          </button>
         )}
 
         {shareCaption && (
